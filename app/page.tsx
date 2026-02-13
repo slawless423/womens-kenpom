@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 type AnyRow = {
   team?: string;
   teamId?: string;
@@ -16,12 +17,17 @@ function num(x: any): number | null {
 }
 
 async function getRatings() {
-  import { headers } from "next/headers";  async function getRatings() {   const h = await headers();   const host = h.get("host");   const proto = h.get("x-forwarded-proto") ?? "https";    const url = `${proto}://${host}/data/ratings.json`;    const res = await fetch(url, { cache: "no-store" });   if (!res.ok) throw new Error(`Failed to load ratings.json (${res.status})`);   const payload = await res.json();    const rows =     payload?.rows ??     payload?.data?.rows ??     payload?.ratings?.rows ??     payload?.result?.rows ??     [];    const updated =     payload?.generated_at_utc ??     payload?.generated_at ??     payload?.updated_at ??     payload?.last_updated ??     null;    return { rows, updated }; }
+  const h = await headers();
+  const host = h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+
+  const url = `${proto}://${host}/data/ratings.json`;
+
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load ratings.json (${res.status})`);
   const payload = await res.json();
 
-  // Support multiple possible shapes
-  const rows: AnyRow[] =
+  const rows =
     payload?.rows ??
     payload?.data?.rows ??
     payload?.ratings?.rows ??
@@ -37,6 +43,7 @@ async function getRatings() {
 
   return { rows, updated };
 }
+
 
 export default async function Home() {
   let data: { rows: AnyRow[]; updated: string | null };
