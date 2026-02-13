@@ -1,52 +1,110 @@
-import { headers } from "next/headers";
-
-export const dynamic = "force-dynamic";
-
-type Row = {
-  team: string;
-  teamId: string;
-  adjO: number;
-  adjD: number;
-  adjEM: number;
+type AnyRow = {
+  team?: string;
+  teamId?: string;
+  games?: number;
+  adjO?: number;
+  adjD?: number;
+  adjEM?: number;
+  adjT?: number;
+  // allow other keys
+  [k: string]: any;
 };
 
-async function getRatings() {
-  const h = await headers();
-  const host = h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
+function num(x: any): number | null {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
 
-const res = await fetch("/data/ratings.json", { cache: "no-store" });
-  return res.json();
+async function getRatings() {
+  const res = await fetch("/data/ratings.json", { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load ratings.json (${res.status})`);
+  const payload = await res.json();
+
+  // Support multiple possible shapes
+  const rows: AnyRow[] =
+    payload?.rows ??
+    payload?.data?.rows ??
+    payload?.ratings?.rows ??
+    payload?.result?.rows ??
+    [];
+
+  const updated =
+    payload?.generated_at_utc ??
+    payload?.generated_at ??
+    payload?.updated_at ??
+    payload?.last_updated ??
+    null;
+
+  return { rows, updated };
 }
 
 export default async function Home() {
-  const data = await getRatings();
+  let data: { rows: AnyRow[]; updated: string | null };
+
+  try {
+    data = await getRatings();
+  } catch (e: any) {
+    return (
+      <main style={{ padding: 24, fontFamily: "system-ui" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700 }}>Women’s KenPom</h1>
+        <p style={{ color: "crimson" }}>
+          Error loading ratings: {e?.message ?? "unknown error"}
+        </p>
+        <p>Try again in a minute — Vercel may still be deploying.</p>
+      </main>
+    );
+  }
+
+  const rows = (data.rows ?? []).filter((r) => r?.team);
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Women’s KenPom (Beta)</h1>
-      <p style={{ opacity: 0.8 }}>Date: {data.date}</p>
+      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Women’s KenPom (Season-to-date)</h1>
+      <p style={{ opacity: 0.8 }}>
+        Updated: {data.updated ? String(data.updated) : "—"}
+      </p>
 
       <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 12 }}>
         <thead>
           <tr>
-            {["Rk", "Team", "AdjO", "AdjD", "AdjEM"].map((col) => (
-              <th key={col} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #ddd" }}>
+            {["Rk", "Team", "G", "AdjO", "AdjD", "AdjEM", "AdjT"].map((col) => (
+              <th
+                key={col}
+                style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #ddd" }}
+              >
                 {col}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {(data.rows as Row[]).map((r, i) => (
-            <tr key={r.teamId}>
-              <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{i + 1}</td>
-              <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{r.team}</td>
-              <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{r.adjO.toFixed(1)}</td>
-              <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{r.adjD.toFixed(1)}</td>
-              <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{r.adjEM.toFixed(1)}</td>
-            </tr>
-          ))}
+          {rows.map((r, i) => {
+            const g = r.games ?? r.g ?? "";
+            const adjO = num(r.adjO);
+            const adjD = num(r.adjD);
+            const adjEM = num(r.adjEM);
+            const adjT = num(r.adjT);
+
+            return (
+              <tr key={r.teamId ?? `${r.team}-${i}`}>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{i + 1}</td>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{r.team}</td>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{g}</td>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
+                  {adjO === null ? "—" : adjO.toFixed(1)}
+                </td>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
+                  {adjD === null ? "—" : adjD.toFixed(1)}
+                </td>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
+                  {adjEM === null ? "—" : adjEM.toFixed(1)}
+                </td>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
+                  {adjT === null ? "—" : adjT.toFixed(1)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </main>
