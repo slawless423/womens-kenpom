@@ -16,7 +16,7 @@ function num(x: any): number | null {
 }
 
 async function getRatings() {
-  const res = await fetch("/data/ratings.json", { cache: "no-store" });
+  import { headers } from "next/headers";  async function getRatings() {   const h = await headers();   const host = h.get("host");   const proto = h.get("x-forwarded-proto") ?? "https";    const url = `${proto}://${host}/data/ratings.json`;    const res = await fetch(url, { cache: "no-store" });   if (!res.ok) throw new Error(`Failed to load ratings.json (${res.status})`);   const payload = await res.json();    const rows =     payload?.rows ??     payload?.data?.rows ??     payload?.ratings?.rows ??     payload?.result?.rows ??     [];    const updated =     payload?.generated_at_utc ??     payload?.generated_at ??     payload?.updated_at ??     payload?.last_updated ??     null;    return { rows, updated }; }
   if (!res.ok) throw new Error(`Failed to load ratings.json (${res.status})`);
   const payload = await res.json();
 
