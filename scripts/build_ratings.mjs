@@ -1,12 +1,16 @@
 import fs from "node:fs/promises";
 
-console.log("START build_ratings", new Date().toISOString());
-
-
 const NCAA_API_BASE = "https://ncaa-api.henrygd.me";
 
 // Set season start (adjust if you want)
 const SEASON_START = "2025-11-01";
+
+// ---- TUNING ----
+const REQUEST_TIMEOUT_MS = 20000; // 20s per request
+const REQUEST_RETRIES = 2;        // retries after the first attempt
+const BOX_CONCURRENCY = 8;        // how many boxscores to fetch at once
+
+console.log("START build_ratings", new Date().toISOString());
 
 // Helper: YYYY-MM-DD -> Date (UTC)
 function toDate(s) {
@@ -48,13 +52,77 @@ function poss(fga, orb, tov, fta) {
   return Math.max(1, fga - orb + tov + 0.475 * fta);
 }
 
-async function fetchJson(path) {
-  const res = await fetch(`${NCAA_API_BASE}${path}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Fetch failed ${res.status} for ${path}`);
-  return res.json();
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-// Parse the WBB boxscore shape you pasted
+async function fetchJson(path) {
+  const url = `${NCAA_API_BASE}${path}`;
+
+  for (let attempt = 0; attempt <= REQUEST_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": "womens-kenpom-bot" },
+      });
+
+      if (!res.ok) {
+        // Retry common transient statuses
+        const retryable = [429, 500, 502, 503, 504].includes(res.status);
+        if (retryable && attempt < REQUEST_RETRIES) {
+          await sleep(300 * (attempt + 1));
+          continue;
+        }
+        throw new Error(`Fetch failed ${res.status} for ${path}`);
+      }
+
+      return await res.json();
+    } catch (e) {
+      const msg = String(e?.message ?? e);
+
+      const isTimeout =
+        msg.includes("AbortError") ||
+        msg.toLowerCase().includes("aborted") ||
+        msg.toLowerCase().includes("timeout");
+
+      if ((isTimeout || msg.includes("ECONNRESET") || msg.includes("ENOTFOUND")) && attempt < REQUEST_RETRIES) {
+        await sleep(400 * (attempt + 1));
+        continue;
+      }
+
+      // final failure
+      if (isTimeout) throw new Error(`Fetch timed out after ${REQUEST_TIMEOUT_MS}ms for ${path}`);
+      throw e;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  // should never reach
+  throw new Error(`Fetch failed after retries for ${path}`);
+}
+
+// Simple concurrency limiter
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let i = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = i++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx], idx);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+// Parse the WBB boxscore
 function parseWbbBoxscore(gameId, gameJson) {
   const teamsArr = Array.isArray(gameJson?.teams) ? gameJson.teams : [];
   const boxArr = Array.isArray(gameJson?.teamBoxscore) ? gameJson.teamBoxscore : [];
@@ -104,41 +172,62 @@ function parseWbbBoxscore(gameId, gameJson) {
 async function main() {
   const today = new Date();
   const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-
   const start = toDate(SEASON_START);
 
   const teamAgg = new Map(); // teamId -> {team, ptsFor, ptsAgainst, poss, games}
+  const seenGameIds = new Set(); // safety: avoid double counting
+
+  let days = 0;
+  let totalGamesFound = 0;
+  let totalBoxesParsed = 0;
 
   for (let dt = start; dt <= end; dt = addDays(dt, 1)) {
+    days++;
     const d = fmtDate(dt);
     const [Y, M, D] = d.split("-");
     const scoreboardPath = `/scoreboard/basketball-women/d1/${Y}/${M}/${D}/all-conf`;
+
+    // light progress every ~7 days
+    if (days % 7 === 1) {
+      console.log("DATE", d);
+    }
 
     let scoreboard;
     try {
       scoreboard = await fetchJson(scoreboardPath);
     } catch {
+      // if that day fails, skip it
       continue;
     }
 
-    const gameIds = extractGameIds(scoreboard);
+    const gameIds = extractGameIds(scoreboard).filter((gid) => !seenGameIds.has(gid));
     if (!gameIds.length) continue;
 
-    for (const gid of gameIds) {
-      let box;
+    for (const gid of gameIds) seenGameIds.add(gid);
+    totalGamesFound += gameIds.length;
+
+    // Fetch boxscores concurrently (big speed-up)
+    const boxes = await mapLimit(gameIds, BOX_CONCURRENCY, async (gid) => {
       try {
-        box = await fetchJson(`/game/${gid}/boxscore`);
+        return await fetchJson(`/game/${gid}/boxscore`);
       } catch {
-        continue;
+        return null;
       }
+    });
+
+    for (let idx = 0; idx < gameIds.length; idx++) {
+      const gid = gameIds[idx];
+      const box = boxes[idx];
+      if (!box) continue;
 
       const lines = parseWbbBoxscore(gid, box);
       if (!lines) continue;
 
+      totalBoxesParsed++;
+
       const a = lines[0];
       const b = lines[1];
 
-      // possessions for each team (we use its own poss for both ORtg and DRtg like we did in the API)
       const aPoss = poss(a.fga, a.orb, a.tov, a.fta);
       const bPoss = poss(b.fga, b.orb, b.tov, b.fta);
 
@@ -166,11 +255,13 @@ async function main() {
     }
   }
 
+  console.log("DONE fetching. days=", days, "gamesFound=", totalGamesFound, "boxesParsed=", totalBoxesParsed);
+
   const rows = [...teamAgg.entries()].map(([teamId, t]) => {
     const adjO = (t.ptsFor / Math.max(1, t.poss)) * 100;
     const adjD = (t.ptsAgainst / Math.max(1, t.poss)) * 100;
     const adjEM = adjO - adjD;
-    const adjT = t.poss / Math.max(1, t.games); // possessions per game
+    const adjT = t.poss / Math.max(1, t.games);
     return { teamId, team: t.team, games: t.games, adjO, adjD, adjEM, adjT };
   });
 
@@ -182,13 +273,14 @@ async function main() {
     rows,
   };
 
+  console.log("WRITE public/data/ratings.json");
   await fs.mkdir("public/data", { recursive: true });
   await fs.writeFile("public/data/ratings.json", JSON.stringify(out, null, 2), "utf8");
 
-  console.log(`Wrote public/data/ratings.json with ${rows.length} teams`);
+  console.log(`WROTE public/data/ratings.json with ${rows.length} teams`);
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error("FATAL", e);
   process.exit(1);
 });
