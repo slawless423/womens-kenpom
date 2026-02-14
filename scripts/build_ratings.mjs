@@ -42,10 +42,17 @@ async function fetchJson(path) {
     const t = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: { "User-Agent": "baseline-analytics-bot" },
-      });
+const res = await fetch(url, {
+  signal: controller.signal,
+  headers: {
+    "User-Agent": "baseline-analytics-bot",
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.ncaa.com/",
+    "Origin": "https://www.ncaa.com/",
+  },
+});
+
 
 if (!res.ok) {
   // DEBUG: show a few boxscore HTTP failures (helps us see if it's 404 vs 403 etc.)
