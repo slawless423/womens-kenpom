@@ -348,20 +348,32 @@ async function main() {
 
       const lines = parseWbbBoxscoreRobust(gid, box);
 
-      if (!lines) {
-        // Write ONE sample failed boxscore for debugging (only once)
-        if (!globalThis.__WROTE_FAILED_SAMPLE__) {
-          globalThis.__WROTE_FAILED_SAMPLE__ = true;
-          await fs.mkdir("public/data", { recursive: true });
-          await fs.writeFile(
-            "public/data/boxscore_failed_sample.json",
-            JSON.stringify(box, null, 2),
-            "utf8"
-          );
-          console.log("WROTE public/data/boxscore_failed_sample.json for game", gid);
-        }
-        continue;
-      }
+if (!lines) {
+  // Write ONE sample failed boxscore for debugging (only once) AND PUSH IT
+  if (!globalThis.__WROTE_FAILED_SAMPLE__) {
+    globalThis.__WROTE_FAILED_SAMPLE__ = true;
+
+    await fs.mkdir("public/data", { recursive: true });
+    await fs.writeFile(
+      "public/data/boxscore_failed_sample.json",
+      JSON.stringify(box, null, 2),
+      "utf8"
+    );
+
+    // Commit + push the sample so it shows up in your repo
+    const { execSync } = await import("node:child_process");
+    try {
+      execSync("git config user.name \"ratings-bot\"");
+      execSync("git config user.email \"ratings-bot@users.noreply.github.com\"");
+      execSync("git add public/data/boxscore_failed_sample.json");
+      execSync("git commit -m \"debug: failed boxscore sample\"");
+      execSync("git push");
+    } catch {}
+
+    console.log("PUSHED public/data/boxscore_failed_sample.json for game", gid);
+  }
+  continue;
+}
 
       totalBoxesParsed++;
 
