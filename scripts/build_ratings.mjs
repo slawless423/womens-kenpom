@@ -329,8 +329,10 @@ async function main() {
       continue;
     }
 
-    const gameIds = extractGameIds(scoreboard).filter((gid) => !seenGameIds.has(gid));
-    if (!gameIds.length) continue;
+const gameIds = extractGameIds(scoreboard).filter((gid) => !seenGameIds.has(gid));
+
+if (gameIds.length) console.log("games on", d, "=", gameIds.length);
+if (!gameIds.length) continue;
 
     for (const gid of gameIds) seenGameIds.add(gid);
     totalGamesFound += gameIds.length;
