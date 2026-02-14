@@ -4,10 +4,6 @@ const NCAA_API_BASE = "https://ncaa-api.henrygd.me";
 const SEASON_START = "2025-11-01";
 const BOX_DELAY_MS = 250; // 4 requests/sec (safe under 5/sec)
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 // ---- TUNING ----
 const REQUEST_TIMEOUT_MS = 20000; // per request
 const REQUEST_RETRIES = 2;
