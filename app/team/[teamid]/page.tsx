@@ -140,10 +140,13 @@ function MetricCard({
   );
 }
 
-export default async function TeamPage({ params }: { params: { teamid: string } }) {
-  const { teamid: teamId } = params;
-  const data = await loadRatings();
-  const row = data.rows.find((r) => String(r.teamId) === String(teamId));
+export default async function TeamPage({
+  params,
+}: {
+  params: Promise<{ teamid: string }>;
+}) {
+  const { teamid: teamId } = await params;
+
 
   if (!row) {
     return (
