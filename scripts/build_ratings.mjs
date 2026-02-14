@@ -399,19 +399,6 @@ for (const gid of gameIds) {
     teamAgg.set(a.teamId, cur);
   }
 
-  // Update B
-  {
-    const cur =
-      teamAgg.get(b.teamId) ?? { team: b.team, ptsFor: 0, ptsAgainst: 0, poss: 0, games: 0 };
-    cur.team = b.team;
-    cur.ptsFor += b.pts;
-    cur.ptsAgainst += a.pts;
-    cur.poss += bPoss;
-    cur.games += 1;
-    teamAgg.set(b.teamId, cur);
-  }
-}
-
 
       totalBoxesParsed++;
 
