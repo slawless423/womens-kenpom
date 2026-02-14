@@ -387,19 +387,6 @@ for (const gid of gameIds) {
   const aPoss = poss(a.fga, a.orb, a.tov, a.fta);
   const bPoss = poss(b.fga, b.orb, b.tov, b.fta);
 
-  // Update A
-  {
-    const cur =
-      teamAgg.get(a.teamId) ?? { team: a.team, ptsFor: 0, ptsAgainst: 0, poss: 0, games: 0 };
-    cur.team = a.team;
-    cur.ptsFor += a.pts;
-    cur.ptsAgainst += b.pts;
-    cur.poss += aPoss;
-    cur.games += 1;
-    teamAgg.set(a.teamId, cur);
-  }
-
-
       totalBoxesParsed++;
 
       const a = lines[0];
