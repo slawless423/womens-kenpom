@@ -146,7 +146,12 @@ export default async function TeamPage({
   params: Promise<{ teamid: string }>;
 }) {
   const { teamid: teamId } = await params;
+const data = await loadRatings();
+const row = data.rows.find((r) => String(r.teamId) === String(teamId));
 
+if (!row) {
+  // ...
+}
 
   if (!row) {
     return (
