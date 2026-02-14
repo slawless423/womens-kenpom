@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Women’s KenPom (Beta)",
-  description: "Women’s college basketball efficiency ratings (beta).",
+  title: "Baseline Analytics",
+  description: "Advanced college basketball efficiency ratings and data-driven analytics.",
 };
 
 export default function RootLayout({
@@ -10,7 +10,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: "system-ui" }}>{children}</body>
+      <body style={{ margin: 0, fontFamily: "system-ui" }}>
+        {children}
+      </body>
     </html>
   );
 }
