@@ -346,8 +346,22 @@ async function main() {
     for (const { gid, box } of boxes) {
       if (!box) continue;
 
-      const lines = parseWbbBoxscoreRobust(gid, box);
-      if (!lines) {
+const lines = parseWbbBoxscore(gid, box);
+if (!lines) {
+  // Write ONE sample failed boxscore for debugging
+  if (!globalThis.__WROTE_FAILED_SAMPLE__) {
+    globalThis.__WROTE_FAILED_SAMPLE__ = true;
+    await fs.mkdir("public/data", { recursive: true });
+    await fs.writeFile(
+      "public/data/boxscore_failed_sample.json",
+      JSON.stringify(box, null, 2),
+      "utf8"
+    );
+    console.log("WROTE public/data/boxscore_failed_sample.json for game", gid);
+  }
+  continue;
+}
+
         // write one sample for debugging (won't spam)
         if (parseFailedSamplesWritten < 1) {
           parseFailedSamplesWritten++;
