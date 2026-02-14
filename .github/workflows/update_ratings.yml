@@ -1,4 +1,4 @@
-name: Update ratings
+name: Update ratings 
 
 on:
   workflow_dispatch:
