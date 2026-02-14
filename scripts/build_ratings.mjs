@@ -220,8 +220,21 @@ async function main() {
       const box = boxes[idx];
       if (!box) continue;
 
-      const lines = parseWbbBoxscore(gid, box);
-      if (!lines) continue;
+const lines = parseWbbBoxscore(gid, box);
+if (!lines) {
+  // Save ONE sample so we can inspect the real structure
+  if (!(globalThis.__WROTE_SAMPLE__)) {
+    globalThis.__WROTE_SAMPLE__ = true;
+    await fs.writeFile(
+      "public/data/boxscore_sample_failed.json",
+      JSON.stringify(box, null, 2),
+      "utf8"
+    );
+    console.log("WROTE sample failed boxscore: public/data/boxscore_sample_failed.json for game", gid);
+  }
+  continue;
+}
+
 
       totalBoxesParsed++;
 
