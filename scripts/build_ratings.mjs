@@ -347,15 +347,19 @@ if (!gameIds.length) continue;
     for (const gid of gameIds) seenGameIds.add(gid);
     totalGamesFound += gameIds.length;
 
-    const boxes = await mapLimit(gameIds, BOX_CONCURRENCY, async (gid) => {
-      try {
-        const box = await fetchJson(`/game/${gid}/boxscore`);
-        totalBoxesFetched++;
-        return { gid, box };
-      } catch {
-        return { gid, box: null };
-      }
-    });
+const boxes = await mapLimit(gameIds, BOX_CONCURRENCY, async (gid) => {
+  try {
+    const box = await fetchJson(`/game/${gid}/boxscore`);
+    totalBoxesFetched++;
+    return { gid, box };
+  } catch (e) {
+    if ((globalThis.__BOX_FAILS__ ?? 0) < 5) {
+      globalThis.__BOX_FAILS__ = (globalThis.__BOX_FAILS__ ?? 0) + 1;
+      console.log("boxscore fetch failed for gid:", gid);
+    }
+    return { gid, box: null };
+  }
+});
 
     for (const { gid, box } of boxes) {
       if (!box) continue;
