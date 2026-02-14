@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 
 const NCAA_API_BASE = "https://ncaa-api.henrygd.me";
 const SEASON_START = "2025-11-01";
+const BOX_DELAY_MS = 250; // 4 requests/sec (safe under 5/sec)
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 // ---- TUNING ----
 const REQUEST_TIMEOUT_MS = 20000; // per request
@@ -343,30 +348,74 @@ if (!gameIds.length) continue;
     for (const gid of gameIds) seenGameIds.add(gid);
     totalGamesFound += gameIds.length;
 
-const boxes = await mapLimit(gameIds, BOX_CONCURRENCY, async (gid) => {
+for (const gid of gameIds) {
+  let box = null;
+
   try {
-    const box = await fetchJson(`/game/${gid}/boxscore`);
+    box = await fetchJson(`/game/${gid}/boxscore`);
     totalBoxesFetched++;
-    return { gid, box };
   } catch (e) {
-    if ((globalThis.__BOX_FAILS__ ?? 0) < 5) {
+    // show only a few failures so logs don't explode
+    if ((globalThis.__BOX_FAILS__ ?? 0) < 10) {
       globalThis.__BOX_FAILS__ = (globalThis.__BOX_FAILS__ ?? 0) + 1;
       console.log("boxscore fetch failed for gid:", gid);
     }
-    return { gid, box: null };
   }
-});
 
-    for (const { gid, box } of boxes) {
-      if (!box) continue;
+  // IMPORTANT: throttle no matter what
+  await sleep(BOX_DELAY_MS);
 
-      const lines = parseWbbBoxscoreRobust(gid, box);
+  if (!box) continue;
 
-if (!lines) {
-  console.log("FAILED BOXSCORE SAMPLE BELOW:");
-  console.log(JSON.stringify(box, null, 2));
-  continue;
+  const lines = parseWbbBoxscore(gid, box);
+  if (!lines) {
+    // Write ONE sample failed boxscore for debugging (only once)
+    if (!globalThis.__WROTE_FAILED_SAMPLE__) {
+      globalThis.__WROTE_FAILED_SAMPLE__ = true;
+      await fs.mkdir("public/data", { recursive: true });
+      await fs.writeFile(
+        "public/data/boxscore_failed_sample.json",
+        JSON.stringify(box, null, 2),
+        "utf8"
+      );
+      console.log("WROTE public/data/boxscore_failed_sample.json for game", gid);
+    }
+    continue;
+  }
+
+  totalBoxesParsed++;
+
+  const a = lines[0];
+  const b = lines[1];
+
+  const aPoss = poss(a.fga, a.orb, a.tov, a.fta);
+  const bPoss = poss(b.fga, b.orb, b.tov, b.fta);
+
+  // Update A
+  {
+    const cur =
+      teamAgg.get(a.teamId) ?? { team: a.team, ptsFor: 0, ptsAgainst: 0, poss: 0, games: 0 };
+    cur.team = a.team;
+    cur.ptsFor += a.pts;
+    cur.ptsAgainst += b.pts;
+    cur.poss += aPoss;
+    cur.games += 1;
+    teamAgg.set(a.teamId, cur);
+  }
+
+  // Update B
+  {
+    const cur =
+      teamAgg.get(b.teamId) ?? { team: b.team, ptsFor: 0, ptsAgainst: 0, poss: 0, games: 0 };
+    cur.team = b.team;
+    cur.ptsFor += b.pts;
+    cur.ptsAgainst += a.pts;
+    cur.poss += bPoss;
+    cur.games += 1;
+    teamAgg.set(b.teamId, cur);
+  }
 }
+
 
       totalBoxesParsed++;
 
