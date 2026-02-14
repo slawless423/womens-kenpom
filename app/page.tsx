@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 type AnyRow = {
   team?: string;
@@ -93,9 +94,9 @@ export default async function Home() {
             const adjT = num(r.adjT);
 
             return (
-              <tr key={r.teamId ?? `${r.team}-${i}`}>
+              <tr key={r.teamId ?? `$<Link href={`/team/${r.teamId}`}>   {r.team} </Link>-${i}`}>
                 <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{i + 1}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{r.team}</td>
+                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}><Link href={`/team/${r.teamId}`}>   {r.team} </Link></td>
                 <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{g}</td>
                 <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
                   {adjO === null ? "—" : adjO.toFixed(1)}
