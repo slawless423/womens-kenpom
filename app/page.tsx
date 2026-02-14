@@ -50,7 +50,7 @@ export default async function Home() {
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Women’s KenPom (Season-to-date)</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Baseline Analytics (Season-to-date)</h1>
       <p style={{ opacity: 0.8 }}>Updated: {data.updated ? String(data.updated) : "—"}</p>
 
       <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 12 }}>
