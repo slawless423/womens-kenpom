@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 const NCAA_API_BASE = "https://ncaa-api.henrygd.me";
 const SEASON_START = "2025-11-01";
 
-console.log("START identify_missing_games", new Date().toISOString());
+console.log("START identify_missing_games (FAST)", new Date().toISOString());
 
 function toDate(s) {
   const [y, m, d] = s.split("-").map(Number);
@@ -25,12 +25,12 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJson(path) {
+async function fetchJson(path, timeout = 5000) {
   const url = `${NCAA_API_BASE}${path}`;
   
   try {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 10000);
+    const t = setTimeout(() => controller.abort(), timeout);
     
     const res = await fetch(url, {
       signal: controller.signal,
@@ -63,32 +63,20 @@ function extractGameIds(obj) {
   return [...ids];
 }
 
-function pick(obj, keys) {
-  for (const k of keys) {
-    if (obj && obj[k] != null) return obj[k];
-  }
-  return null;
-}
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let i = 0;
 
-function findTeamsMeta(gameJson) {
-  const candidates = [
-    gameJson?.teams,
-    gameJson?.game?.teams,
-    gameJson?.meta?.teams,
-    gameJson?.header?.teams,
-  ].filter(Array.isArray);
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = i++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx], idx);
+    }
+  });
 
-  for (const arr of candidates) {
-    const filtered = arr.filter((t) => t && (t.teamId != null || t.id != null));
-    if (filtered.length >= 2) return filtered;
-  }
-  return null;
-}
-
-function nameFromMeta(t) {
-  return String(
-    pick(t, ["nameShort", "name_short", "shortName", "nameFull", "name_full", "fullName", "name"]) ?? "Unknown"
-  );
+  await Promise.all(workers);
+  return results;
 }
 
 async function main() {
@@ -96,13 +84,11 @@ async function main() {
   const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
   const start = toDate(SEASON_START);
 
-  const allGameIds = new Set();
-  const successfulGameIds = new Set();
-  const gameMetadata = new Map(); // gameId -> {date, teams}
+  const allGames = new Map(); // gameId -> {date, available}
 
   console.log("Step 1: Collecting all game IDs from scoreboards...");
   
-  // Collect all game IDs
+  // Collect all game IDs (fast, no delays needed)
   for (let dt = start; dt <= end; dt = addDays(dt, 1)) {
     const d = fmtDate(dt);
     const [Y, M, D] = d.split("-");
@@ -113,59 +99,52 @@ async function main() {
 
     const gameIds = extractGameIds(scoreboard);
     for (const gid of gameIds) {
-      allGameIds.add(gid);
-      gameMetadata.set(gid, { date: d, homeTeam: null, awayTeam: null });
+      allGames.set(gid, { date: d, available: false });
     }
-    
-    await sleep(100);
   }
 
-  console.log(`Found ${allGameIds.size} total games`);
-  console.log("\nStep 2: Testing which games have valid boxscores...");
+  console.log(`Found ${allGames.size} total games`);
+  console.log("\nStep 2: Testing boxscores in parallel (FAST MODE)...");
 
-  let tested = 0;
-  for (const gid of allGameIds) {
-    tested++;
-    if (tested % 100 === 0) console.log(`Tested ${tested}/${allGameIds.size} games...`);
+  const gameIds = [...allGames.keys()];
+  
+  // Test all boxscores in parallel with high concurrency
+  const results = await mapLimit(gameIds, 20, async (gid, idx) => {
+    if ((idx + 1) % 200 === 0) console.log(`Tested ${idx + 1}/${gameIds.length} games...`);
+    
+    const box = await fetchJson(`/game/${gid}/boxscore`, 5000);
+    return { gid, available: box !== null };
+  });
 
-    const box = await fetchJson(`/game/${gid}/boxscore`);
-    await sleep(200);
-
-    if (box) {
-      // Try to parse team names
-      const teams = findTeamsMeta(box);
-      if (teams && teams.length >= 2) {
-        const meta = gameMetadata.get(gid);
-        meta.homeTeam = nameFromMeta(teams[0]);
-        meta.awayTeam = nameFromMeta(teams[1]);
-        gameMetadata.set(gid, meta);
-        successfulGameIds.add(gid);
-      } else {
-        successfulGameIds.add(gid); // Has data but couldn't parse teams
-      }
-    }
+  // Update availability
+  for (const { gid, available } of results) {
+    const game = allGames.get(gid);
+    if (game) game.available = available;
   }
 
   // Find missing games
-  const missingGameIds = [...allGameIds].filter(gid => !successfulGameIds.has(gid));
+  const missingGames = [];
+  const successfulGames = [];
+
+  for (const [gid, data] of allGames) {
+    if (data.available) {
+      successfulGames.push(gid);
+    } else {
+      missingGames.push({
+        gameId: gid,
+        date: data.date,
+        homeTeam: "Unknown",
+        awayTeam: "Unknown",
+        ncaaUrl: `https://www.ncaa.com/game/${gid}`,
+        status: "NEEDS_MANUAL_ENTRY"
+      });
+    }
+  }
 
   console.log(`\n=== RESULTS ===`);
-  console.log(`Total games: ${allGameIds.size}`);
-  console.log(`Successful: ${successfulGameIds.size}`);
-  console.log(`Missing: ${missingGameIds.length}`);
-
-  // Create output files
-  const missingGames = missingGameIds.map(gid => {
-    const meta = gameMetadata.get(gid);
-    return {
-      gameId: gid,
-      date: meta.date,
-      homeTeam: meta.homeTeam || "Unknown",
-      awayTeam: meta.awayTeam || "Unknown",
-      ncaaUrl: `https://www.ncaa.com/game/${gid}`,
-      status: "NEEDS_MANUAL_ENTRY"
-    };
-  });
+  console.log(`Total games: ${allGames.size}`);
+  console.log(`Successful: ${successfulGames.length}`);
+  console.log(`Missing: ${missingGames.length}`);
 
   // Save as JSON
   await fs.mkdir("public/data", { recursive: true });
@@ -175,7 +154,7 @@ async function main() {
     "utf8"
   );
 
-  // Save as CSV for easy viewing
+  // Save as CSV
   const csvLines = [
     "gameId,date,homeTeam,awayTeam,ncaaUrl,status"
   ];
@@ -192,7 +171,7 @@ async function main() {
 
   console.log(`\n✅ Created public/data/missing_games.json`);
   console.log(`✅ Created public/data/missing_games.csv`);
-  console.log(`\nNext step: Manually fill in box scores for these ${missingGameIds.length} games`);
+  console.log(`\nNext step: Manually fill in box scores for these ${missingGames.length} games`);
 }
 
 main().catch((e) => {
