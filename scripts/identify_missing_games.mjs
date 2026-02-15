@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 const NCAA_API_BASE = "https://ncaa-api.henrygd.me";
 const SEASON_START = "2025-11-01";
 
-console.log("START identify_missing_games (FAST)", new Date().toISOString());
+console.log("START identify_missing_games (BALANCED)", new Date().toISOString());
 
 function toDate(s) {
   const [y, m, d] = s.split("-").map(Number);
@@ -25,7 +25,7 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJson(path, timeout = 5000) {
+async function fetchJson(path, timeout = 15000) {
   const url = `${NCAA_API_BASE}${path}`;
   
   try {
@@ -37,6 +37,9 @@ async function fetchJson(path, timeout = 5000) {
       headers: {
         "User-Agent": "baseline-analytics-bot",
         "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.ncaa.com/",
+        "Origin": "https://www.ncaa.com/",
       },
     });
     
@@ -84,52 +87,56 @@ async function main() {
   const end = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
   const start = toDate(SEASON_START);
 
-  const allGames = new Map(); // gameId -> {date, available}
+  const allGames = new Map(); // gameId -> {date}
 
   console.log("Step 1: Collecting all game IDs from scoreboards...");
   
-  // Collect all game IDs (fast, no delays needed)
+  // Collect all game IDs
   for (let dt = start; dt <= end; dt = addDays(dt, 1)) {
     const d = fmtDate(dt);
     const [Y, M, D] = d.split("-");
     const scoreboardPath = `/scoreboard/basketball-women/d1/${Y}/${M}/${D}/all-conf`;
 
-    const scoreboard = await fetchJson(scoreboardPath);
+    const scoreboard = await fetchJson(scoreboardPath, 10000);
     if (!scoreboard) continue;
 
     const gameIds = extractGameIds(scoreboard);
     for (const gid of gameIds) {
-      allGames.set(gid, { date: d, available: false });
+      allGames.set(gid, { date: d });
     }
+    
+    await sleep(50); // Small delay between scoreboard requests
   }
 
   console.log(`Found ${allGames.size} total games`);
-  console.log("\nStep 2: Testing boxscores in parallel (FAST MODE)...");
+  console.log("\nStep 2: Testing boxscores (balanced mode)...");
 
   const gameIds = [...allGames.keys()];
+  const availableGames = new Set();
   
-  // Test all boxscores in parallel with high concurrency
-  const results = await mapLimit(gameIds, 20, async (gid, idx) => {
-    if ((idx + 1) % 200 === 0) console.log(`Tested ${idx + 1}/${gameIds.length} games...`);
+  // Process in batches
+  const batchSize = 100;
+  for (let i = 0; i < gameIds.length; i += batchSize) {
+    const batch = gameIds.slice(i, i + batchSize);
     
-    const box = await fetchJson(`/game/${gid}/boxscore`, 5000);
-    return { gid, available: box !== null };
-  });
-
-  // Update availability
-  for (const { gid, available } of results) {
-    const game = allGames.get(gid);
-    if (game) game.available = available;
+    const results = await mapLimit(batch, 6, async (gid) => {
+      const box = await fetchJson(`/game/${gid}/boxscore`, 15000);
+      await sleep(150); // Small delay
+      return { gid, available: box !== null };
+    });
+    
+    for (const { gid, available } of results) {
+      if (available) availableGames.add(gid);
+    }
+    
+    console.log(`Tested ${Math.min(i + batchSize, gameIds.length)}/${gameIds.length} games...`);
   }
 
-  // Find missing games
+  // Create missing games list
   const missingGames = [];
-  const successfulGames = [];
 
   for (const [gid, data] of allGames) {
-    if (data.available) {
-      successfulGames.push(gid);
-    } else {
+    if (!availableGames.has(gid)) {
       missingGames.push({
         gameId: gid,
         date: data.date,
@@ -143,7 +150,7 @@ async function main() {
 
   console.log(`\n=== RESULTS ===`);
   console.log(`Total games: ${allGames.size}`);
-  console.log(`Successful: ${successfulGames.length}`);
+  console.log(`Successful: ${availableGames.size}`);
   console.log(`Missing: ${missingGames.length}`);
 
   // Save as JSON
