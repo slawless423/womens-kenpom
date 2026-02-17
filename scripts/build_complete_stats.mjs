@@ -629,6 +629,15 @@ async function main() {
 
   ratingsRows.sort((a, b) => b.adjEM - a.adjEM);
 
+  // Filter to D1 teams only for the ratings page
+  // D1 teams have conference data; non-D1 teams don't
+  // This filters which teams GET A PAGE, not which games count in stats
+  const d1Rows = ratingsRows.filter(r => r.conference && r.conference !== "—" && r.conference !== null);
+  
+  console.log(`Total teams in database: ${ratingsRows.length}`);
+  console.log(`D1 teams (with conference): ${d1Rows.length}`);
+  console.log(`Non-D1 teams filtered out: ${ratingsRows.length - d1Rows.length}`);
+
   // Save all the data files
   await fs.mkdir("public/data", { recursive: true });
 
@@ -638,22 +647,23 @@ async function main() {
     JSON.stringify({
       generated_at_utc: new Date().toISOString(),
       season_start: SEASON_START,
-      rows: ratingsRows,
+      rows: d1Rows,
     }, null, 2),
     "utf8"
   );
-  console.log(`✅ WROTE public/data/ratings.json (${ratingsRows.length} teams)`);
+  console.log(`✅ WROTE public/data/ratings.json (${d1Rows.length} D1 teams)`);
 
-  // 2. Complete team stats
+  // 2. Complete team stats (D1 only)
+  const d1TeamStats = Array.from(teamSeasonStats.values()).filter(t => t.conference && t.conference !== "—");
   await fs.writeFile(
     "public/data/team_stats.json",
     JSON.stringify({
       generated_at_utc: new Date().toISOString(),
-      teams: Array.from(teamSeasonStats.values()),
+      teams: d1TeamStats,
     }, null, 2),
     "utf8"
   );
-  console.log(`✅ WROTE public/data/team_stats.json (${teamSeasonStats.size} teams)`);
+  console.log(`✅ WROTE public/data/team_stats.json (${d1TeamStats.length} D1 teams)`);
 
   // 3. Games log
   await fs.writeFile(
