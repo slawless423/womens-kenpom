@@ -573,7 +573,7 @@ export default async function TeamPage({
       </div>
 
       {/* CONFERENCE TOGGLE */}
-      <a href={confOnlyUrl} style={{ textDecoration: "none" }}>
+      <Link href={confOnlyUrl} style={{ textDecoration: "none" }}>
         <div style={S.toggle}>
           <input
             type="checkbox"
@@ -585,7 +585,7 @@ export default async function TeamPage({
             Conference games only {confOnly && `(${teamGames.length} games)`}
           </span>
         </div>
-      </a>
+      </Link>
 
       {/* TWO COLUMN LAYOUT */}
       <div style={S.twoCol}>
