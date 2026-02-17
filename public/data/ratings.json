@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-02-17T21:34:27.444Z",
+  "generated_at_utc": "2026-02-17T23:43:46.580Z",
   "season_start": "2025-11-01",
   "rows": [
     {
@@ -253,6 +253,16 @@
       "adjT": 73.1076923076923
     },
     {
+      "teamId": "352",
+      "team": "UC Irvine",
+      "conference": "big-west",
+      "games": 25,
+      "adjO": 104.66571586576244,
+      "adjD": 81.00683207479324,
+      "adjEM": 23.6588837909692,
+      "adjT": 68.714
+    },
+    {
       "teamId": "442",
       "team": "McNeese",
       "conference": "southland",
@@ -261,16 +271,6 @@
       "adjD": 75.06343585310765,
       "adjEM": 23.614881102748967,
       "adjT": 69.76826923076922
-    },
-    {
-      "teamId": "352",
-      "team": "UC Irvine",
-      "conference": "big-west",
-      "games": 25,
-      "adjO": 104.60482299211682,
-      "adjD": 81.05346477657048,
-      "adjEM": 23.551358215546344,
-      "adjT": 68.75399999999999
     },
     {
       "teamId": "1723",
@@ -1123,6 +1123,16 @@
       "adjT": 74.24166666666667
     },
     {
+      "teamId": "1468",
+      "team": "East Carolina",
+      "conference": "american",
+      "games": 27,
+      "adjO": 96.83586776231657,
+      "adjD": 86.86889045651517,
+      "adjEM": 9.966977305801393,
+      "adjT": 73.1287037037037
+    },
+    {
       "teamId": "2117",
       "team": "Davidson",
       "conference": "atlantic-10",
@@ -1197,20 +1207,10 @@
       "team": "Cal St. Fullerton",
       "conference": "big-west",
       "games": 25,
-      "adjO": 93.83831214917092,
-      "adjD": 84.36187482285037,
-      "adjEM": 9.47643732632055,
-      "adjT": 77.495
-    },
-    {
-      "teamId": "1468",
-      "team": "East Carolina",
-      "conference": "american",
-      "games": 26,
-      "adjO": 96.97157063544202,
-      "adjD": 87.50704875173014,
-      "adjEM": 9.464521883711882,
-      "adjT": 74.64519230769231
+      "adjO": 93.78990133488102,
+      "adjD": 84.40537265719664,
+      "adjEM": 9.384528677684386,
+      "adjT": 77.535
     },
     {
       "teamId": "548",
@@ -2056,11 +2056,11 @@
       "teamId": "1345",
       "team": "UT Martin",
       "conference": "ovc",
-      "games": 25,
-      "adjO": 89.14772090939636,
-      "adjD": 88.02357875644732,
-      "adjEM": 1.1241421529490339,
-      "adjT": 71.432
+      "games": 26,
+      "adjO": 89.07853636769299,
+      "adjD": 87.95799695139164,
+      "adjEM": 1.1205394163013551,
+      "adjT": 68.95384615384616
     },
     {
       "teamId": "1366",
@@ -2343,6 +2343,16 @@
       "adjT": 74.70434782608696
     },
     {
+      "teamId": "2342",
+      "team": "Temple",
+      "conference": "american",
+      "games": 25,
+      "adjO": 92.76375112714157,
+      "adjD": 95.22463173965902,
+      "adjEM": -2.4608806125174425,
+      "adjT": 70.976
+    },
+    {
       "teamId": "609",
       "team": "South Alabama",
       "conference": "sun-belt",
@@ -2351,16 +2361,6 @@
       "adjD": 93.0459801313718,
       "adjEM": -2.4980978706479675,
       "adjT": 73.994
-    },
-    {
-      "teamId": "2342",
-      "team": "Temple",
-      "conference": "american",
-      "games": 24,
-      "adjO": 92.8320290348191,
-      "adjD": 95.36001820716339,
-      "adjEM": -2.5279891723442915,
-      "adjT": 73.47500000000001
     },
     {
       "teamId": "1279",
@@ -2513,6 +2513,16 @@
       "adjT": 71.45288461538462
     },
     {
+      "teamId": "614",
+      "team": "Southeast Mo. St.",
+      "conference": "ovc",
+      "games": 26,
+      "adjO": 88.78921343456997,
+      "adjD": 92.19886553219887,
+      "adjEM": -3.409652097628893,
+      "adjT": 71.17115384615384
+    },
+    {
       "teamId": "1069",
       "team": "UCF",
       "conference": "big-12",
@@ -2521,16 +2531,6 @@
       "adjD": 92.39986067572275,
       "adjEM": -3.411599077064281,
       "adjT": 71.56
-    },
-    {
-      "teamId": "614",
-      "team": "Southeast Mo. St.",
-      "conference": "ovc",
-      "games": 25,
-      "adjO": 88.85513575090184,
-      "adjD": 92.27677674325139,
-      "adjEM": -3.421640992349552,
-      "adjT": 73.738
     },
     {
       "teamId": "1200",
@@ -2556,11 +2556,11 @@
       "teamId": "1622",
       "team": "Charlotte",
       "conference": "american",
-      "games": 25,
-      "adjO": 90.88839565192647,
-      "adjD": 94.51019535149008,
-      "adjEM": -3.62179969956361,
-      "adjT": 70.28399999999999
+      "games": 26,
+      "adjO": 90.78054298642535,
+      "adjD": 94.43106135751735,
+      "adjEM": -3.650518371092005,
+      "adjT": 68
     },
     {
       "teamId": "53999",
@@ -2743,16 +2743,6 @@
       "adjT": 70.30729166666667
     },
     {
-      "teamId": "1107",
-      "team": "Fla. Atlantic",
-      "conference": "american",
-      "games": 25,
-      "adjO": 86.80047486264874,
-      "adjD": 92.8401541868285,
-      "adjEM": -6.039679324179758,
-      "adjT": 72.442
-    },
-    {
       "teamId": "2056",
       "team": "Palm Beach Atl.",
       "conference": "sunshine-state",
@@ -2811,6 +2801,16 @@
       "adjD": 90.17014637045843,
       "adjEM": -6.627414233408132,
       "adjT": 67.654
+    },
+    {
+      "teamId": "1107",
+      "team": "Fla. Atlantic",
+      "conference": "american",
+      "games": 26,
+      "adjO": 86.12699531152606,
+      "adjD": 92.77105199581241,
+      "adjEM": -6.644056684286355,
+      "adjT": 70.95961538461539
     },
     {
       "teamId": "2671",
