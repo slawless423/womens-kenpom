@@ -484,9 +484,14 @@ export default async function TeamPage({
   const confName = row.conference ?? teamStats?.conference ?? "—";
 
   // Filter games for this team
-  const teamGames = allGames
+  const allTeamGames = allGames
     .filter((g) => g.homeId === teamId || g.awayId === teamId)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Apply conference filter to game log if toggle is on
+  const teamGames = confOnly 
+    ? allTeamGames.filter(g => g.isConferenceGame === true)
+    : allTeamGames;
 
   // Build EM rank map
   const emRankMap = new Map(rows.map((r, i) => [r.teamId, i + 1]));
@@ -576,7 +581,7 @@ export default async function TeamPage({
         />
         <label htmlFor="conf-toggle" style={S.toggleLabel}>
           <a href={confOnlyUrl} style={{ color: "inherit", textDecoration: "none" }}>
-            Conference games only
+            Conference games only {confOnly && `(${teamGames.length} games)`}
           </a>
         </label>
       </div>
