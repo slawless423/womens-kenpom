@@ -403,6 +403,17 @@ async function main() {
 
       totalBoxesFetched++;
 
+      // Save first successful boxscore for debugging field names
+      if (totalBoxesFetched === 1) {
+        await fs.mkdir("public/data", { recursive: true });
+        await fs.writeFile(
+          "public/data/sample_boxscore.json",
+          JSON.stringify(box, null, 2),
+          "utf8"
+        );
+        console.log(`Saved sample boxscore for game ${gid} to public/data/sample_boxscore.json`);
+      }
+
       const gameData = parseCompleteGameData(gid, box, date);
       if (!gameData) {
         totalBoxesFailed++;
