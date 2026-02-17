@@ -108,14 +108,14 @@ function calcFourFactors(s: TeamStats) {
       tov: offPoss > 0 ? (s.tov / offPoss) * 100 : null,
       orb: (s.orb + s.opp_drb) > 0 ? (s.orb / (s.orb + s.opp_drb)) * 100 : null,
       ftrate: s.fga > 0 ? (s.fta / s.fga) * 100 : null,
-      fg: pct(s.fgm, s.fga),
       twopm: s.fgm - s.tpm,
       twopa: s.fga - s.tpa,
       two: (s.fga - s.tpa) > 0 ? ((s.fgm - s.tpm) / (s.fga - s.tpa)) * 100 : null,
       three: pct(s.tpm, s.tpa),
       ft: pct(s.ftm, s.fta),
-      blk: offPoss > 0 ? (s.blk / offPoss) * 100 : null,
-      stl: offPoss > 0 ? (s.stl / offPoss) * 100 : null,
+      // Block% = our blocks / opponent's 2PA
+      blk: (s.opp_fga - s.opp_tpa) > 0 ? (s.blk / (s.opp_fga - s.opp_tpa)) * 100 : null,
+      stl: offPoss > 0 ? (s.opp_stl / offPoss) * 100 : null,
       ast: s.fgm > 0 ? (s.ast / s.fgm) * 100 : null,
     },
     // DEFENSE (opponent's offense against us)
@@ -124,12 +124,12 @@ function calcFourFactors(s: TeamStats) {
       tov: defPoss > 0 ? (s.opp_tov / defPoss) * 100 : null,
       orb: (s.opp_orb + s.drb) > 0 ? (s.opp_orb / (s.opp_orb + s.drb)) * 100 : null,
       ftrate: s.opp_fga > 0 ? (s.opp_fta / s.opp_fga) * 100 : null,
-      fg: pct(s.opp_fgm, s.opp_fga),
       two: (s.opp_fga - s.opp_tpa) > 0 ? ((s.opp_fgm - s.opp_tpm) / (s.opp_fga - s.opp_tpa)) * 100 : null,
       three: pct(s.opp_tpm, s.opp_tpa),
       ft: pct(s.opp_ftm, s.opp_fta),
-      blk: defPoss > 0 ? (s.opp_blk / defPoss) * 100 : null,
-      stl: defPoss > 0 ? (s.opp_stl / defPoss) * 100 : null,
+      // Defensive Block% = opponent's blocks / our 2PA
+      blk: (s.fga - s.tpa) > 0 ? (s.opp_blk / (s.fga - s.tpa)) * 100 : null,
+      stl: defPoss > 0 ? (s.stl / defPoss) * 100 : null,
       ast: s.opp_fgm > 0 ? (s.opp_ast / s.opp_fgm) * 100 : null,
     },
   };
@@ -548,12 +548,6 @@ export default async function TeamPage({
 
               {/* SHOOTING */}
               <SectionHeader title="Shooting" />
-              <StatRow
-                label="FG%"
-                offVal={ff.off.fg}
-                defVal={ff.def.fg}
-                avgVal={leagueAvg?.off.fg ?? null}
-              />
               <StatRow
                 label="2P%"
                 offVal={ff.off.two}
