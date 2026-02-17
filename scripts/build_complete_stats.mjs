@@ -166,10 +166,10 @@ function extractCompleteStats(raw) {
     trb: toInt(pick(raw, ["totalRebounds", "treb", "rebounds", "reb", "trb"]), 0),
     ast: toInt(pick(raw, ["assists", "ast"]), 0),
     stl: toInt(pick(raw, ["steals", "stl"]), 0),
-    blk: toInt(pick(raw, ["blocks", "blk"]), 0),
+    blk: toInt(pick(raw, ["blockedShots", "blocks", "blk"]), 0),
     tov: toInt(pick(raw, ["turnovers", "tov", "to"]), 0),
     pf: toInt(pick(raw, ["fouls", "pf", "personalFouls"]), 0),
-    minutes: toFloat(pick(raw, ["minutes", "mins", "min"]), 0),
+    minutes: toFloat(pick(raw, ["minutesPlayed", "minutes", "mins", "min"]), 0),
   };
 }
 
