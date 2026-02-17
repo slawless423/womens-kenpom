@@ -53,6 +53,23 @@ type TeamStats = {
   opp_pf: number;
 };
 
+type GameStats = {
+  fgm: number;
+  fga: number;
+  tpm: number;
+  tpa: number;
+  ftm: number;
+  fta: number;
+  orb: number;
+  drb: number;
+  trb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pf: number;
+};
+
 type Game = {
   gameId: string;
   date: string;
@@ -60,10 +77,12 @@ type Game = {
   homeId: string;
   homeScore: number;
   homeConf?: string;
+  homeStats: GameStats;
   awayTeam: string;
   awayId: string;
   awayScore: number;
   awayConf?: string;
+  awayStats: GameStats;
   isConferenceGame?: boolean;
 };
 
@@ -451,6 +470,100 @@ function calcLeagueAverages(allTeamStats: TeamStats[]) {
   return calcFourFactors(avgStats);
 }
 
+// Recalculate team stats from a filtered set of games
+function recalcStatsFromGames(
+  teamId: string,
+  games: Game[],
+  teamName: string,
+  conference?: string
+): TeamStats {
+  const stats: TeamStats = {
+    teamId,
+    teamName,
+    conference,
+    games: 0,
+    wins: 0,
+    losses: 0,
+    points: 0,
+    opp_points: 0,
+    fgm: 0,
+    fga: 0,
+    tpm: 0,
+    tpa: 0,
+    ftm: 0,
+    fta: 0,
+    orb: 0,
+    drb: 0,
+    trb: 0,
+    ast: 0,
+    stl: 0,
+    blk: 0,
+    tov: 0,
+    pf: 0,
+    opp_fgm: 0,
+    opp_fga: 0,
+    opp_tpm: 0,
+    opp_tpa: 0,
+    opp_ftm: 0,
+    opp_fta: 0,
+    opp_orb: 0,
+    opp_drb: 0,
+    opp_trb: 0,
+    opp_ast: 0,
+    opp_stl: 0,
+    opp_blk: 0,
+    opp_tov: 0,
+    opp_pf: 0,
+  };
+
+  for (const g of games) {
+    const isHome = g.homeId === teamId;
+    const ourStats = isHome ? g.homeStats : g.awayStats;
+    const oppStats = isHome ? g.awayStats : g.homeStats;
+    const ourScore = isHome ? g.homeScore : g.awayScore;
+    const oppScore = isHome ? g.awayScore : g.homeScore;
+
+    stats.games++;
+    if (ourScore > oppScore) stats.wins++;
+    else stats.losses++;
+
+    stats.points += ourScore;
+    stats.opp_points += oppScore;
+    
+    stats.fgm += ourStats.fgm;
+    stats.fga += ourStats.fga;
+    stats.tpm += ourStats.tpm;
+    stats.tpa += ourStats.tpa;
+    stats.ftm += ourStats.ftm;
+    stats.fta += ourStats.fta;
+    stats.orb += ourStats.orb;
+    stats.drb += ourStats.drb;
+    stats.trb += ourStats.trb;
+    stats.ast += ourStats.ast;
+    stats.stl += ourStats.stl;
+    stats.blk += ourStats.blk;
+    stats.tov += ourStats.tov;
+    stats.pf += ourStats.pf;
+
+    stats.opp_fgm += oppStats.fgm;
+    stats.opp_fga += oppStats.fga;
+    stats.opp_tpm += oppStats.tpm;
+    stats.opp_tpa += oppStats.tpa;
+    stats.opp_ftm += oppStats.ftm;
+    stats.opp_fta += oppStats.fta;
+    stats.opp_orb += oppStats.orb;
+    stats.opp_drb += oppStats.drb;
+    stats.opp_trb += oppStats.trb;
+    stats.opp_ast += oppStats.ast;
+    stats.opp_stl += oppStats.stl;
+    stats.opp_blk += oppStats.blk;
+    stats.opp_tov += oppStats.tov;
+    stats.opp_pf += oppStats.pf;
+  }
+
+  return stats;
+}
+
 // ===== MAIN PAGE =====
 export default async function TeamPage({
   params,
@@ -524,11 +637,16 @@ export default async function TeamPage({
   const dRank = [...rows].sort((a, b) => (a.adjD ?? 0) - (b.adjD ?? 0)).findIndex(r => r.teamId === teamId) + 1;
   const tRank = [...rows].sort((a, b) => (b.adjT ?? 0) - (a.adjT ?? 0)).findIndex(r => r.teamId === teamId) + 1;
 
-  const ff = teamStats ? calcFourFactors(teamStats) : null;
+  // Recalculate stats from filtered games if filters are active
+  const displayStats = (confOnly || d1Only) && teamGames.length > 0
+    ? recalcStatsFromGames(teamId, teamGames, row.team, confName !== "—" ? confName : undefined)
+    : teamStats;
+
+  const ff = displayStats ? calcFourFactors(displayStats) : null;
   const leagueAvg = calcLeagueAverages(allTeamStats);
 
-  const wins = teamStats?.wins ?? 0;
-  const losses = teamStats?.losses ?? 0;
+  const wins = displayStats?.wins ?? 0;
+  const losses = displayStats?.losses ?? 0;
 
   const updatedDate = updated
     ? new Date(updated).toLocaleDateString("en-US", {
@@ -798,9 +916,11 @@ export default async function TeamPage({
       </div>
 
       {/* SEASON TOTALS */}
-      {teamStats && (
+      {displayStats && (
         <>
-          <div style={{ ...S.sectionTitle, marginTop: 32 }}>Season Totals</div>
+          <div style={{ ...S.sectionTitle, marginTop: 32 }}>
+            {(confOnly || d1Only) ? "Filtered Totals" : "Season Totals"}
+          </div>
           <table style={S.table}>
             <thead>
               <tr>
@@ -812,58 +932,58 @@ export default async function TeamPage({
             <tbody>
               <tr>
                 <td style={S.td}>Points</td>
-                <td style={S.tdRight}>{teamStats.points.toLocaleString()}</td>
-                <td style={S.tdRight}>{teamStats.opp_points.toLocaleString()}</td>
+                <td style={S.tdRight}>{displayStats.points.toLocaleString()}</td>
+                <td style={S.tdRight}>{displayStats.opp_points.toLocaleString()}</td>
               </tr>
               <tr>
                 <td style={S.td}>Field Goals (M-A)</td>
-                <td style={S.tdRight}>{teamStats.fgm}-{teamStats.fga}</td>
-                <td style={S.tdRight}>{teamStats.opp_fgm}-{teamStats.opp_fga}</td>
+                <td style={S.tdRight}>{displayStats.fgm}-{displayStats.fga}</td>
+                <td style={S.tdRight}>{displayStats.opp_fgm}-{displayStats.opp_fga}</td>
               </tr>
               <tr>
                 <td style={S.td}>3-Pointers (M-A)</td>
-                <td style={S.tdRight}>{teamStats.tpm}-{teamStats.tpa}</td>
-                <td style={S.tdRight}>{teamStats.opp_tpm}-{teamStats.opp_tpa}</td>
+                <td style={S.tdRight}>{displayStats.tpm}-{displayStats.tpa}</td>
+                <td style={S.tdRight}>{displayStats.opp_tpm}-{displayStats.opp_tpa}</td>
               </tr>
               <tr>
                 <td style={S.td}>Free Throws (M-A)</td>
-                <td style={S.tdRight}>{teamStats.ftm}-{teamStats.fta}</td>
-                <td style={S.tdRight}>{teamStats.opp_ftm}-{teamStats.opp_fta}</td>
+                <td style={S.tdRight}>{displayStats.ftm}-{displayStats.fta}</td>
+                <td style={S.tdRight}>{displayStats.opp_ftm}-{displayStats.opp_fta}</td>
               </tr>
               <tr>
                 <td style={S.td}>Offensive Rebounds</td>
-                <td style={S.tdRight}>{teamStats.orb}</td>
-                <td style={S.tdRight}>{teamStats.opp_orb}</td>
+                <td style={S.tdRight}>{displayStats.orb}</td>
+                <td style={S.tdRight}>{displayStats.opp_orb}</td>
               </tr>
               <tr>
                 <td style={S.td}>Defensive Rebounds</td>
-                <td style={S.tdRight}>{teamStats.drb}</td>
-                <td style={S.tdRight}>{teamStats.opp_drb}</td>
+                <td style={S.tdRight}>{displayStats.drb}</td>
+                <td style={S.tdRight}>{displayStats.opp_drb}</td>
               </tr>
               <tr>
                 <td style={S.td}>Assists</td>
-                <td style={S.tdRight}>{teamStats.ast}</td>
-                <td style={S.tdRight}>{teamStats.opp_ast}</td>
+                <td style={S.tdRight}>{displayStats.ast}</td>
+                <td style={S.tdRight}>{displayStats.opp_ast}</td>
               </tr>
               <tr>
                 <td style={S.td}>Steals</td>
-                <td style={S.tdRight}>{teamStats.stl}</td>
-                <td style={S.tdRight}>{teamStats.opp_stl}</td>
+                <td style={S.tdRight}>{displayStats.stl}</td>
+                <td style={S.tdRight}>{displayStats.opp_stl}</td>
               </tr>
               <tr>
                 <td style={S.td}>Blocks</td>
-                <td style={S.tdRight}>{teamStats.blk}</td>
-                <td style={S.tdRight}>{teamStats.opp_blk}</td>
+                <td style={S.tdRight}>{displayStats.blk}</td>
+                <td style={S.tdRight}>{displayStats.opp_blk}</td>
               </tr>
               <tr>
                 <td style={S.td}>Turnovers</td>
-                <td style={S.tdRight}>{teamStats.tov}</td>
-                <td style={S.tdRight}>{teamStats.opp_tov}</td>
+                <td style={S.tdRight}>{displayStats.tov}</td>
+                <td style={S.tdRight}>{displayStats.opp_tov}</td>
               </tr>
               <tr>
                 <td style={S.td}>Personal Fouls</td>
-                <td style={S.tdRight}>{teamStats.pf}</td>
-                <td style={S.tdRight}>{teamStats.opp_pf}</td>
+                <td style={S.tdRight}>{displayStats.pf}</td>
+                <td style={S.tdRight}>{displayStats.opp_pf}</td>
               </tr>
             </tbody>
           </table>
