@@ -306,7 +306,17 @@ function parseCompleteGameData(gameId, gameJson, gameDate) {
   const bestById = new Map();
   for (const c of candidates) {
     const key = String(c.teamId);
-    const score = (c.stats?.fga ?? 0) + (c.stats?.fta ?? 0);
+    // Score based on how many fields are populated (prefer more complete data)
+    const s = c.stats;
+    const score = 
+      (s.points || 0) + 
+      (s.fga || 0) + 
+      (s.fta || 0) + 
+      (s.blk || 0) * 100 +  // Heavily weight blocks to prefer teamStats
+      (s.stl || 0) * 100 +  // Heavily weight steals
+      (s.ast || 0) * 10 +   // Weight assists
+      (s.orb || 0) + 
+      (s.tov || 0);
     const prev = bestById.get(key);
     if (!prev || score > prev.score) bestById.set(key, { stats: c.stats, score });
   }
