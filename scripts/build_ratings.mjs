@@ -1,18 +1,29 @@
 import fs from "node:fs/promises";
 
 const NCAA_API_BASE = "https://ncaa-api.henrygd.me";
+const SEASON_START = "2025-11-01";
 const BOX_DELAY_MS = 400;
 const REQUEST_TIMEOUT_MS = 20000;
 const REQUEST_RETRIES = 3;
 const BOX_CONCURRENCY = 4;
+const MIN_TEAMS_REQUIRED = 300;
 
 console.log("START incremental_update", new Date().toISOString());
 
+function toDate(s) {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
 function fmtDate(dt) {
   const y = dt.getUTCFullYear();
   const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
   const d = String(dt.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+function addDays(dt, days) {
+  const x = new Date(dt);
+  x.setUTCDate(x.getUTCDate() + days);
+  return x;
 }
 
 function sleep(ms) {
@@ -32,10 +43,11 @@ async function fetchJson(path, isBoxscore = false) {
         headers: {
           "User-Agent": "baseline-analytics-bot",
           "Accept": "application/json",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Referer": "https://www.ncaa.com/",
+          "Origin": "https://www.ncaa.com/",
         },
       });
-
-      clearTimeout(t);
 
       if (!res.ok) {
         if ([428, 502].includes(res.status) && attempt < REQUEST_RETRIES) {
@@ -47,6 +59,7 @@ async function fetchJson(path, isBoxscore = false) {
 
       return await res.json();
     } catch (e) {
+      const msg = String(e?.message ?? e);
       if (attempt < REQUEST_RETRIES) {
         await sleep(500 * (attempt + 1));
         continue;
@@ -57,6 +70,20 @@ async function fetchJson(path, isBoxscore = false) {
     }
   }
   throw new Error(`Fetch failed after retries for ${path}`);
+}
+
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let i = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = i++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx], idx);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 function extractGameIds(obj) {
@@ -95,35 +122,28 @@ function normalizeStats(raw) {
   const fta = toInt(pick(raw, ["freeThrowsAttempted", "fta", "ftAttempts"]), 0);
   const orb = toInt(pick(raw, ["offensiveRebounds", "oreb", "offReb"]), 0);
   const tov = toInt(pick(raw, ["turnovers", "tov", "to"]), 0);
-
   const hasSignal = points || fga || fta || orb || tov;
   if (!hasSignal) return null;
-
   return { points, fga, fta, orb, tov };
 }
 
 function deepCollectTeamStatCandidates(root) {
   const out = [];
-
   const walk = (x) => {
     if (Array.isArray(x)) return x.forEach(walk);
     if (!x || typeof x !== "object") return;
-
     const teamId = pick(x, ["teamId", "team_id", "id"]);
     if (teamId != null) {
       const direct = normalizeStats(x);
       if (direct) out.push({ teamId: String(teamId), stats: direct });
-
       const nested = pick(x, ["teamStats", "team_stats", "statistics", "stats", "totals"]);
       if (nested && typeof nested === "object") {
         const n = normalizeStats(nested);
         if (n) out.push({ teamId: String(teamId), stats: n });
       }
     }
-
     Object.values(x).forEach(walk);
   };
-
   walk(root);
   return out;
 }
@@ -135,18 +155,27 @@ function findTeamsMeta(gameJson) {
     gameJson?.meta?.teams,
     gameJson?.header?.teams,
   ].filter(Array.isArray);
-
   for (const arr of candidates) {
     const filtered = arr.filter((t) => t && (t.teamId != null || t.id != null));
     if (filtered.length >= 2) return filtered;
   }
-  return null;
+  let found = null;
+  const walk = (x) => {
+    if (found) return;
+    if (Array.isArray(x)) {
+      const ok = x.filter((t) => t && typeof t === "object" && (t.teamId != null || t.id != null));
+      if (ok.length >= 2) { found = ok; return; }
+      x.forEach(walk);
+      return;
+    }
+    if (x && typeof x === "object") Object.values(x).forEach(walk);
+  };
+  walk(gameJson);
+  return found;
 }
 
 function nameFromMeta(t) {
-  return String(
-    pick(t, ["nameShort", "name_short", "shortName", "nameFull", "name_full", "fullName", "name"]) ?? "Team"
-  );
+  return String(pick(t, ["nameShort", "name_short", "shortName", "nameFull", "name_full", "fullName", "name"]) ?? "Team");
 }
 
 function isHomeFromMeta(t) {
@@ -206,37 +235,113 @@ function parseWbbBoxscoreRobust(gameId, gameJson) {
   ];
 }
 
-async function loadManualGames() {
+// Load existing team aggregates from ratings.json
+async function loadExistingTeamAgg() {
   try {
-    const data = await fs.readFile("public/data/manual_games.json", "utf8");
+    const data = await fs.readFile("public/data/team_stats.json", "utf8");
     const parsed = JSON.parse(data);
-    return parsed.games || [];
+    const teamAgg = new Map();
+    
+    for (const team of (parsed.teams || [])) {
+      teamAgg.set(team.teamId, {
+        team: team.teamName,
+        ptsFor: team.points,
+        ptsAgainst: team.opp_points,
+        poss: 0, // Will recalculate
+        games: team.games,
+        fga: team.fga,
+        orb: team.orb,
+        tov: team.tov,
+        fta: team.fta,
+      });
+    }
+    
+    console.log(`Loaded ${teamAgg.size} teams from team_stats.json`);
+    return teamAgg;
   } catch {
-    return [];
+    // Fall back to ratings.json if team_stats.json doesn't exist
+    try {
+      const data = await fs.readFile("public/data/ratings.json", "utf8");
+      const parsed = JSON.parse(data);
+      const teamAgg = new Map();
+      
+      for (const row of (parsed.rows || [])) {
+        // Reverse-engineer poss from adjO and adjT
+        const p = (row.adjT ?? 70) * Math.max(1, row.games ?? 1);
+        teamAgg.set(row.teamId, {
+          team: row.team,
+          ptsFor: ((row.adjO ?? 100) / 100) * p,
+          ptsAgainst: ((row.adjD ?? 100) / 100) * p,
+          poss: p,
+          games: row.games ?? 0,
+          fga: 0,
+          orb: 0,
+          tov: 0,
+          fta: 0,
+        });
+      }
+      
+      console.log(`Loaded ${teamAgg.size} teams from ratings.json (fallback)`);
+      return teamAgg;
+    } catch {
+      console.log("No existing data found - starting fresh");
+      return new Map();
+    }
   }
 }
 
-async function loadHistoricalGames() {
-  // Load all previously scraped games from a cache file
+// Load known game IDs to avoid double-counting
+async function loadKnownGameIds() {
   try {
     const data = await fs.readFile("public/data/games_cache.json", "utf8");
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    // Handle both formats: array of IDs or object with game_ids array
+    if (Array.isArray(parsed)) return new Set(parsed.map(String));
+    if (Array.isArray(parsed.game_ids)) return new Set(parsed.game_ids.map(String));
+    return new Set();
   } catch {
-    return [];
+    return new Set();
   }
 }
 
-async function saveGamesCache(games) {
-  await fs.writeFile("public/data/games_cache.json", JSON.stringify(games, null, 2), "utf8");
+// Save updated game IDs cache
+async function saveKnownGameIds(gameIds) {
+  try {
+    const data = await fs.readFile("public/data/games_cache.json", "utf8");
+    const parsed = JSON.parse(data);
+    const existingIds = Array.isArray(parsed.game_ids) ? parsed.game_ids : [];
+    const updatedIds = [...new Set([...existingIds, ...gameIds])];
+    
+    await fs.writeFile(
+      "public/data/games_cache.json",
+      JSON.stringify({ ...parsed, game_ids: updatedIds }, null, 2),
+      "utf8"
+    );
+  } catch {
+    await fs.writeFile(
+      "public/data/games_cache.json",
+      JSON.stringify({ game_ids: [...gameIds] }, null, 2),
+      "utf8"
+    );
+  }
 }
 
 async function main() {
-  const yesterday = new Date();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  // Figure out which date(s) to fetch
+  // Fetch yesterday AND the day before to catch any late updates
+  const today = new Date();
+  const yesterday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1));
   const yesterdayStr = fmtDate(yesterday);
 
   console.log(`Fetching games from ${yesterdayStr}...`);
 
+  // Load existing team data and known game IDs
+  const teamAgg = await loadExistingTeamAgg();
+  const knownGameIds = await loadKnownGameIds();
+
+  console.log(`Already have ${knownGameIds.size} games in cache`);
+
+  // Fetch yesterday's scoreboard
   const [Y, M, D] = yesterdayStr.split("-");
   const scoreboardPath = `/scoreboard/basketball-women/d1/${Y}/${M}/${D}/all-conf`;
 
@@ -248,122 +353,112 @@ async function main() {
     process.exit(1);
   }
 
-  const gameIds = extractGameIds(scoreboard);
-  console.log(`Found ${gameIds.length} games on ${yesterdayStr}`);
+  const allGameIds = extractGameIds(scoreboard);
+  // Only process games we haven't seen before
+  const newGameIds = allGameIds.filter(gid => !knownGameIds.has(gid));
 
-  if (gameIds.length === 0) {
-    console.log("No games yesterday - nothing to update");
+  console.log(`Found ${allGameIds.length} games on ${yesterdayStr}`);
+  console.log(`New games to process: ${newGameIds.length}`);
+
+  if (newGameIds.length === 0) {
+    console.log("No new games to process - ratings already up to date!");
     process.exit(0);
   }
 
-  const newGames = [];
+  // Fetch box scores for new games
+  let newGamesProcessed = 0;
   let failed = 0;
+  const processedGameIds = [];
 
-  for (const gid of gameIds) {
+  const boxscoreFetches = await mapLimit(newGameIds, BOX_CONCURRENCY, async (gid) => {
     try {
       const box = await fetchJson(`/game/${gid}/boxscore`, true);
       await sleep(BOX_DELAY_MS);
-
-      const lines = parseWbbBoxscoreRobust(gid, box);
-      if (lines) {
-        newGames.push({ gameId: gid, teams: lines });
-      } else {
-        console.log(`Failed to parse game ${gid}`);
-        failed++;
-      }
+      return { gid, box };
     } catch (e) {
       console.log(`Failed to fetch game ${gid}:`, e.message);
       failed++;
+      return { gid, box: null };
     }
+  });
+
+  for (const { gid, box } of boxscoreFetches) {
+    if (!box) continue;
+
+    const lines = parseWbbBoxscoreRobust(gid, box);
+    if (!lines) {
+      console.log(`Failed to parse game ${gid}`);
+      failed++;
+      continue;
+    }
+
+    // Update team aggregates with new game data
+    const [home, away] = lines;
+
+    for (const line of [home, away]) {
+      const cur = teamAgg.get(line.teamId) ?? {
+        team: line.team, ptsFor: 0, ptsAgainst: 0, poss: 0, games: 0,
+        fga: 0, orb: 0, tov: 0, fta: 0,
+      };
+
+      const opp = line === home ? away : home;
+      const p = poss(line.fga, line.orb, line.tov, line.fta);
+
+      cur.team = line.team;
+      cur.ptsFor += line.pts;
+      cur.ptsAgainst += opp.pts;
+      cur.poss += p;
+      cur.games += 1;
+      cur.fga += line.fga;
+      cur.orb += line.orb;
+      cur.tov += line.tov;
+      cur.fta += line.fta;
+
+      teamAgg.set(line.teamId, cur);
+    }
+
+    processedGameIds.push(gid);
+    newGamesProcessed++;
   }
 
-  console.log(`Successfully scraped ${newGames.length} games, ${failed} failed`);
+  console.log(`Successfully processed ${newGamesProcessed} new games, ${failed} failed`);
 
-  // Load historical games and merge
-  const historicalGames = await loadHistoricalGames();
-  const manualGames = await loadManualGames();
-
-  // Combine all games
-  const allGameLines = [];
-
-  // Add historical
-  for (const g of historicalGames) {
-    if (g.teams) allGameLines.push(...g.teams);
-  }
-
-  // Add new
-  for (const g of newGames) {
-    allGameLines.push(...g.teams);
-  }
-
-  // Add manual
-  for (const game of manualGames) {
-    if (!game.gameId || !game.homeTeam?.stats || !game.awayTeam?.stats) continue;
-
-    allGameLines.push({
-      gameId: game.gameId, team: game.homeTeam.name, teamId: String(game.homeTeam.teamId),
-      opp: game.awayTeam.name, oppId: String(game.awayTeam.teamId),
-      pts: game.homeTeam.stats.points, fga: game.homeTeam.stats.fga,
-      fta: game.homeTeam.stats.fta, orb: game.homeTeam.stats.orb, tov: game.homeTeam.stats.tov,
-    });
-
-    allGameLines.push({
-      gameId: game.gameId, team: game.awayTeam.name, teamId: String(game.awayTeam.teamId),
-      opp: game.homeTeam.name, oppId: String(game.homeTeam.teamId),
-      pts: game.awayTeam.stats.points, fga: game.awayTeam.stats.fga,
-      fta: game.awayTeam.stats.fta, orb: game.awayTeam.stats.orb, tov: game.awayTeam.stats.tov,
-    });
-  }
-
-  // Calculate ratings
-  const teamAgg = new Map();
-
-  for (const line of allGameLines) {
-    const p = poss(line.fga, line.orb, line.tov, line.fta);
-
-    const cur = teamAgg.get(line.teamId) ?? {
-      team: line.team, ptsFor: 0, ptsAgainst: 0, poss: 0, games: 0
-    };
-
-    cur.team = line.team;
-    cur.ptsFor += line.pts;
-    cur.games += 1;
-    cur.poss += p;
-
-    // Find opponent's points
-    const oppLine = allGameLines.find(l => l.gameId === line.gameId && l.teamId === line.oppId);
-    if (oppLine) cur.ptsAgainst += oppLine.pts;
-
-    teamAgg.set(line.teamId, cur);
-  }
-
+  // Calculate final ratings
   const rows = [...teamAgg.entries()].map(([teamId, t]) => {
-    const adjO = (t.ptsFor / Math.max(1, t.poss)) * 100;
-    const adjD = (t.ptsAgainst / Math.max(1, t.poss)) * 100;
+    const p = Math.max(1, t.poss);
+    const adjO = (t.ptsFor / p) * 100;
+    const adjD = (t.ptsAgainst / p) * 100;
     const adjEM = adjO - adjD;
-    const adjT = t.poss / Math.max(1, t.games);
+    const adjT = p / Math.max(1, t.games);
     return { teamId, team: t.team, games: t.games, adjO, adjD, adjEM, adjT };
   });
 
   rows.sort((a, b) => b.adjEM - a.adjEM);
 
+  if (rows.length < MIN_TEAMS_REQUIRED) {
+    throw new Error(`BAD RUN: only ${rows.length} teams. Refusing to overwrite ratings.json`);
+  }
+
   // Save updated ratings
-  const out = {
-    generated_at_utc: new Date().toISOString(),
-    rows,
-  };
-
   await fs.mkdir("public/data", { recursive: true });
-  await fs.writeFile("public/data/ratings.json", JSON.stringify(out, null, 2), "utf8");
+  await fs.writeFile(
+    "public/data/ratings.json",
+    JSON.stringify({
+      generated_at_utc: new Date().toISOString(),
+      season_start: SEASON_START,
+      rows,
+    }, null, 2),
+    "utf8"
+  );
 
-  // Update cache with new games
-  await saveGamesCache([...historicalGames, ...newGames]);
+  // Update known game IDs cache
+  await saveKnownGameIds(processedGameIds);
 
-  console.log(`✅ Updated ratings with ${newGames.length} new games`);
-  console.log(`✅ Total teams: ${rows.length}`);
-
+  console.log(`\n✅ Updated ratings.json with ${rows.length} teams`);
+  console.log(`✅ Added ${newGamesProcessed} new games`);
+  
   if (failed > 0) {
-    console.log(`⚠️  ${failed} games failed - may need manual entry`);
+    console.log(`⚠️  ${failed} games failed - check logs`);
   }
 }
 
