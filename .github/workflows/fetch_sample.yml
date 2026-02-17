@@ -1,4 +1,4 @@
-name: Fetch Sample Boxscore
+name: Fetch Sample Scoreboard
 
 on:
   workflow_dispatch:
@@ -16,11 +16,11 @@ jobs:
         with:
           node-version: 20
       - name: Fetch sample
-        run: node scripts/fetch_sample_boxscore.mjs
+        run: node scripts/fetch_sample_scoreboard.mjs
       - name: Commit
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
-          git add public/data/sample_boxscore.json
-          git commit -m "Add sample boxscore" || echo "No changes"
+          git add public/data/sample_scoreboard.json
+          git commit -m "Add sample scoreboard" || echo "No changes"
           git push || echo "Nothing to push"
