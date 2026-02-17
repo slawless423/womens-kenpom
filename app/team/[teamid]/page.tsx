@@ -340,6 +340,7 @@ const S = {
     border: `1px solid ${ACCENT_BORDER}`,
     borderRadius: 6,
     marginBottom: 16,
+    cursor: "pointer",
   } as React.CSSProperties,
   toggleInput: {
     accentColor: ACCENT,
@@ -572,19 +573,19 @@ export default async function TeamPage({
       </div>
 
       {/* CONFERENCE TOGGLE */}
-      <div style={S.toggle}>
-        <input
-          type="checkbox"
-          id="conf-toggle"
-          checked={confOnly}
-          style={S.toggleInput}
-        />
-        <label htmlFor="conf-toggle" style={S.toggleLabel}>
-          <a href={confOnlyUrl} style={{ color: "inherit", textDecoration: "none" }}>
+      <a href={confOnlyUrl} style={{ textDecoration: "none" }}>
+        <div style={S.toggle}>
+          <input
+            type="checkbox"
+            checked={confOnly}
+            readOnly
+            style={S.toggleInput}
+          />
+          <span style={S.toggleLabel}>
             Conference games only {confOnly && `(${teamGames.length} games)`}
-          </a>
-        </label>
-      </div>
+          </span>
+        </div>
+      </a>
 
       {/* TWO COLUMN LAYOUT */}
       <div style={S.twoCol}>
