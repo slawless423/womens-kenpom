@@ -661,12 +661,12 @@ async function main() {
 
   ratingsRows.sort((a, b) => b.adjEM - a.adjEM);
 
-  // TODO: Re-enable D1 filter once conference data is working
-  // const d1Rows = ratingsRows.filter(r => r.conference && r.conference !== "—" && r.conference !== null);
-  const d1Rows = ratingsRows; // Use all teams for now
+  // Filter to D1 teams only - D1 teams have conference data
+  const d1Rows = ratingsRows.filter(r => r.conference && r.conference !== "—" && r.conference !== null);
   
   console.log(`Total teams in database: ${ratingsRows.length}`);
-  console.log(`D1 filter temporarily disabled - showing all teams`);
+  console.log(`D1 teams (with conference): ${d1Rows.length}`);
+  console.log(`Non-D1 teams filtered out: ${ratingsRows.length - d1Rows.length}`);
 
   // Save all the data files
   await fs.mkdir("public/data", { recursive: true });
