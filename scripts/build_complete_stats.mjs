@@ -661,11 +661,25 @@ async function main() {
 
   ratingsRows.sort((a, b) => b.adjEM - a.adjEM);
 
-  // Filter to D1 teams only - D1 teams have conference data
-  const d1Rows = ratingsRows.filter(r => r.conference && r.conference !== "—" && r.conference !== null);
+  // D1 Women's Basketball Conferences
+  const D1_CONFERENCES = new Set([
+    'acc', 'big-12', 'big-ten', 'sec', 'pac-12', 'big-east',
+    'american', 'wcc', 'mwc', 'atlantic-10', 'mvc', 'mac',
+    'cusa', 'sun-belt', 'colonial', 'horizon', 'maac', 'ovc',
+    'patriot', 'southland', 'summit', 'wac', 'big-sky', 'big-south',
+    'big-west', 'ivy', 'meac', 'nec', 'swac', 'aac', 'asun',
+    'america-east', 'southland'
+  ]);
+
+  // Filter to D1 teams only - teams in D1 conferences
+  const d1Rows = ratingsRows.filter(r => {
+    if (!r.conference) return false;
+    const conf = String(r.conference).toLowerCase().trim();
+    return D1_CONFERENCES.has(conf);
+  });
   
   console.log(`Total teams in database: ${ratingsRows.length}`);
-  console.log(`D1 teams (with conference): ${d1Rows.length}`);
+  console.log(`D1 teams (in D1 conferences): ${d1Rows.length}`);
   console.log(`Non-D1 teams filtered out: ${ratingsRows.length - d1Rows.length}`);
 
   // Save all the data files
