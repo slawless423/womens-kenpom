@@ -1,46 +1,44 @@
-name: Update ratings
+name: Daily Update Ratings
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "0 11 * * *" # daily ~11:00 UTC
+    - cron: '0 11 * * *'  # 11 AM UTC daily
+  workflow_dispatch:
 
 permissions:
   contents: write
 
-concurrency:
-  group: update-ratings
-  cancel-in-progress: false
-
 jobs:
-  build:
+  update:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Build ratings json
-        timeout-minutes: 60
+      
+      - name: Run incremental update
         run: node scripts/build_ratings.mjs
-
-      - name: Commit and push if changed
+      
+      - name: Commit and push
         run: |
           git config user.name "ratings-bot"
-          git config user.email "ratings-bot@users.noreply.github.com"
-          git add public/data/ratings.json
-
-          # If nothing changed, stop
-          git diff --cached --quiet && exit 0
-
-          # Commit
-          git commit -m "Update ratings"
-
-          # Get latest main, apply our commit on top, then push
+          git config user.email "bot@users.noreply.github.com"
+          
+          # Pull latest changes with rebase, but reset if conflicts
           git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
+          git rebase origin/main || {
+            echo "Rebase failed, resetting to origin/main"
+            git rebase --abort
+            git reset --hard origin/main
+            # Re-run the update script after reset
+            node scripts/build_ratings.mjs
+          }
+          
+          git add public/data/*.json
+          git commit -m "Update ratings" || echo "No changes to commit"
+          git push origin main || echo "Nothing to push"
