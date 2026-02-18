@@ -29,16 +29,17 @@ jobs:
           git config user.name "ratings-bot"
           git config user.email "bot@users.noreply.github.com"
           
-          # Pull latest changes with rebase, but reset if conflicts
-          git fetch origin main
-          git rebase origin/main || {
-            echo "Rebase failed, resetting to origin/main"
-            git rebase --abort
-            git reset --hard origin/main
-            # Re-run the update script after reset
-            node scripts/build_ratings.mjs
-          }
-          
+          # Add and commit changes first
           git add public/data/*.json
           git commit -m "Update ratings" || echo "No changes to commit"
+          
+          # Then pull and rebase
+          git fetch origin main
+          git rebase origin/main || {
+            echo "Rebase failed, force pushing our changes"
+            git rebase --abort
+            git push --force-with-lease origin main
+            exit 0
+          }
+          
           git push origin main || echo "Nothing to push"
