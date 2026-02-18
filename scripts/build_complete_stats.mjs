@@ -634,6 +634,80 @@ async function main() {
       stats.opp_tov += oppStats.tov;
       stats.opp_pf += oppStats.pf;
     }
+
+    // Aggregate player stats
+    if (game.players && Array.isArray(game.players)) {
+      for (const playerData of game.players) {
+        if (!playerData.teamId || !playerData.players) continue;
+
+        const teamId = String(playerData.teamId);
+        const teamName = teamId === home.teamId ? home.teamName : away.teamName;
+
+        for (const p of playerData.players) {
+          // Create unique player ID: teamId + player number + name
+          const playerId = `${teamId}_${p.number || 0}_${p.firstName}_${p.lastName}`;
+
+          if (!playerSeasonStats.has(playerId)) {
+            playerSeasonStats.set(playerId, {
+              playerId,
+              teamId,
+              teamName,
+              firstName: p.firstName || "",
+              lastName: p.lastName || "",
+              number: p.number || "",
+              position: p.position || "",
+              year: p.year || "",
+              games: 0,
+              starts: 0,
+              minutes: 0,
+              fgm: 0,
+              fga: 0,
+              tpm: 0,
+              tpa: 0,
+              ftm: 0,
+              fta: 0,
+              orb: 0,
+              drb: 0,
+              trb: 0,
+              ast: 0,
+              stl: 0,
+              blk: 0,
+              tov: 0,
+              pf: 0,
+              points: 0,
+            });
+          }
+
+          const pStats = playerSeasonStats.get(playerId);
+          
+          // Parse minutes (might be string like "25.3")
+          const mins = parseFloat(p.minutesPlayed || p.minutes || 0);
+          
+          // Only count this game if player actually played
+          if (mins > 0 || parseInt(p.points || 0) > 0) {
+            pStats.games++;
+            if (p.starter === true || p.starter === "true") pStats.starts++;
+            
+            pStats.minutes += mins;
+            pStats.fgm += parseInt(p.fieldGoalsMade || 0);
+            pStats.fga += parseInt(p.fieldGoalsAttempted || 0);
+            pStats.tpm += parseInt(p.threePointsMade || 0);
+            pStats.tpa += parseInt(p.threePointsAttempted || 0);
+            pStats.ftm += parseInt(p.freeThrowsMade || 0);
+            pStats.fta += parseInt(p.freeThrowsAttempted || 0);
+            pStats.orb += parseInt(p.offensiveRebounds || 0);
+            pStats.trb += parseInt(p.totalRebounds || 0);
+            pStats.drb += Math.max(0, parseInt(p.totalRebounds || 0) - parseInt(p.offensiveRebounds || 0));
+            pStats.ast += parseInt(p.assists || 0);
+            pStats.stl += parseInt(p.steals || 0);
+            pStats.blk += parseInt(p.blockedShots || 0);
+            pStats.tov += parseInt(p.turnovers || 0);
+            pStats.pf += parseInt(p.personalFouls || 0);
+            pStats.points += parseInt(p.points || 0);
+          }
+        }
+      }
+    }
   }
 
   // Calculate efficiency ratings (for compatibility with existing site)
@@ -661,14 +735,18 @@ async function main() {
 
   ratingsRows.sort((a, b) => b.adjEM - a.adjEM);
 
-  // D1 Women's Basketball Conferences
+  // D1 Women's Basketball Conferences (exact codes from NCAA API)
   const D1_CONFERENCES = new Set([
+    // Power conferences
     'acc', 'big-12', 'big-ten', 'sec', 'pac-12', 'big-east',
-    'american', 'wcc', 'mwc', 'atlantic-10', 'mvc', 'mac',
-    'cusa', 'sun-belt', 'colonial', 'horizon', 'maac', 'ovc',
-    'patriot', 'southland', 'summit', 'wac', 'big-sky', 'big-south',
-    'big-west', 'ivy', 'meac', 'nec', 'swac', 'aac', 'asun',
-    'america-east', 'southland'
+    // Other major conferences
+    'american', 'aac', 'wcc', 'mwc', 'mountain-west', 'atlantic-10', 'a-10',
+    // Mid-major conferences
+    'mvc', 'mac', 'cusa', 'sun-belt', 'sunbelt', 'colonial', 'caa',
+    'horizon', 'maac', 'ovc', 'patriot', 'southland', 'summit-league',
+    'wac', 'big-sky', 'big-south', 'southern', 'socon',
+    'big-west', 'ivy-league', 'meac', 'nec', 'northeast', 'swac',
+    'asun', 'america-east', 'americaeast'
   ]);
 
   // Filter to D1 teams only - teams in D1 conferences
@@ -720,17 +798,21 @@ async function main() {
   );
   console.log(`✅ WROTE public/data/games.json (${gamesLog.length} games)`);
 
-  // 4. Player stats (placeholder for now - needs more work to extract properly)
+  // 4. Player stats - filter to D1 teams' players only
+  const d1TeamIds = new Set(d1Rows.map(r => r.teamId));
+  const d1Players = Array.from(playerSeasonStats.values())
+    .filter(p => d1TeamIds.has(p.teamId))
+    .filter(p => p.games > 0); // Only include players who actually played
+  
   await fs.writeFile(
     "public/data/player_stats.json",
     JSON.stringify({
       generated_at_utc: new Date().toISOString(),
-      note: "Player stats extraction needs refinement based on actual API structure",
-      players: [],
+      players: d1Players,
     }, null, 2),
     "utf8"
   );
-  console.log(`✅ WROTE public/data/player_stats.json (placeholder)`);
+  console.log(`✅ WROTE public/data/player_stats.json (${d1Players.length} D1 players)`);
 
   // 5. Games cache - ONLY contains IDs of games we SUCCESSFULLY PARSED
   // This is critical: we never add game IDs from scoreboards alone,
