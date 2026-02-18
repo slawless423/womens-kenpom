@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-02-18T15:22:13.172Z",
+  "generated_at_utc": "2026-02-18T18:36:02.965Z",
   "season_start": "2025-11-01",
   "rows": [
     {
@@ -1113,16 +1113,6 @@
       "adjT": 70.396
     },
     {
-      "teamId": "364",
-      "team": "Coastal Carolina",
-      "conference": "sun-belt",
-      "games": 27,
-      "adjO": 96.54471544715447,
-      "adjD": 86.748393210784,
-      "adjEM": 9.796322236370472,
-      "adjT": 76.53333333333333
-    },
-    {
       "teamId": "647",
       "team": "West Ga.",
       "conference": "asun",
@@ -1151,6 +1141,16 @@
       "adjD": 87.04428525712035,
       "adjEM": 9.662923286338568,
       "adjT": 74.91111111111111
+    },
+    {
+      "teamId": "364",
+      "team": "Coastal Carolina",
+      "conference": "sun-belt",
+      "games": 28,
+      "adjO": 96.1549682011786,
+      "adjD": 86.57582993866181,
+      "adjEM": 9.579138262516793,
+      "adjT": 76.51339285714286
     },
     {
       "teamId": "1438",
@@ -1503,16 +1503,6 @@
       "adjT": 61.621
     },
     {
-      "teamId": "824",
-      "team": "App State",
-      "conference": "sun-belt",
-      "games": 25,
-      "adjO": 94.76619985758367,
-      "adjD": 89.43573854495621,
-      "adjEM": 5.330461312627463,
-      "adjT": 67.408
-    },
-    {
       "teamId": "1189",
       "team": "Bowling Green",
       "conference": "mac",
@@ -1561,6 +1551,16 @@
       "adjD": 79.16533928002548,
       "adjEM": 5.001171026351344,
       "adjT": 74.61399999999999
+    },
+    {
+      "teamId": "824",
+      "team": "App State",
+      "conference": "sun-belt",
+      "games": 26,
+      "adjO": 94.20238483460705,
+      "adjD": 89.2676461786208,
+      "adjEM": 4.934738655986251,
+      "adjT": 67.81634615384615
     },
     {
       "teamId": "1335",
