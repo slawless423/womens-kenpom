@@ -1,12 +1,25 @@
 {
   "name": "sideline-stats",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "build-stats": "node scripts/build_complete_stats.mjs",
     "update-ratings": "node scripts/build_ratings.mjs"
   },
   "dependencies": {
-    "pg": "^8.11.3"
+    "next": "^15.1.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "pg": "^8.11.3",
+    "typescript": "^5"
   }
 }
