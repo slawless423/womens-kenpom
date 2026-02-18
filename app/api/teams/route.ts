@@ -33,9 +33,18 @@ export async function GET() {
       ORDER BY adj_em DESC
     `);
 
+    // Parse numeric values
+    const rows = result.rows.map(row => ({
+      ...row,
+      adjO: row.adjO ? parseFloat(row.adjO) : null,
+      adjD: row.adjD ? parseFloat(row.adjD) : null,
+      adjEM: row.adjEM ? parseFloat(row.adjEM) : null,
+      adjT: row.adjT ? parseFloat(row.adjT) : null,
+    }));
+
     return NextResponse.json({
       updated: new Date().toISOString(),
-      rows: result.rows
+      rows
     });
   } catch (error) {
     console.error('Database error:', error);
