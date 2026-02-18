@@ -501,8 +501,8 @@ async function main() {
   for (const game of allGames) {
     const { home, away } = game;
 
-    // Add to games log with FULL stats (not just scores)
-    gamesLog.push({
+    // Add to games log with FULL stats (not just scores) + PLAYER STATS
+    const gameLogEntry = {
       gameId: game.gameId,
       date: game.date,
       homeTeam: home.teamName,
@@ -546,7 +546,46 @@ async function main() {
         pf: away.stats.pf,
       },
       isConferenceGame: game.isConferenceGame,
-    });
+      players: [], // Will populate below
+    };
+
+    // Add per-game player stats
+    if (game.players && Array.isArray(game.players)) {
+      for (const playerData of game.players) {
+        if (!playerData.teamId || !playerData.players) continue;
+        
+        const teamId = String(playerData.teamId);
+        const simplifiedPlayers = playerData.players.map((p: any) => ({
+          playerId: `${teamId}_${p.number || 0}_${p.firstName}_${p.lastName}`,
+          firstName: p.firstName || "",
+          lastName: p.lastName || "",
+          number: p.number || "",
+          minutes: parseFloat(p.minutesPlayed || p.minutes || 0),
+          fgm: parseInt(p.fieldGoalsMade || 0),
+          fga: parseInt(p.fieldGoalsAttempted || 0),
+          tpm: parseInt(p.threePointsMade || 0),
+          tpa: parseInt(p.threePointsAttempted || 0),
+          ftm: parseInt(p.freeThrowsMade || 0),
+          fta: parseInt(p.freeThrowsAttempted || 0),
+          orb: parseInt(p.offensiveRebounds || 0),
+          drb: Math.max(0, parseInt(p.totalRebounds || 0) - parseInt(p.offensiveRebounds || 0)),
+          trb: parseInt(p.totalRebounds || 0),
+          ast: parseInt(p.assists || 0),
+          stl: parseInt(p.steals || 0),
+          blk: parseInt(p.blockedShots || 0),
+          tov: parseInt(p.turnovers || 0),
+          pf: parseInt(p.personalFouls || 0),
+          points: parseInt(p.points || 0),
+        }));
+
+        gameLogEntry.players.push({
+          teamId,
+          players: simplifiedPlayers,
+        });
+      }
+    }
+
+    gamesLog.push(gameLogEntry);
 
     // Aggregate team stats
     for (const team of [home, away]) {
