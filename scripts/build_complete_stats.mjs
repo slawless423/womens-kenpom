@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import * as db from "./db_writer.mjs";
 
 const NCAA_API_BASE = "https://ncaa-api.henrygd.me";
 const SEASON_START = "2025-11-01";
@@ -880,6 +881,107 @@ async function main() {
   console.log(`   - ${successfullyParsedIds.length} games with full boxscore data`);
   console.log(`   - ${totalBoxesFailed} games failed (no boxscore available)`);
   console.log(`\n✅ Incremental script will correctly pick up new games from here!`);
+  
+  // ===== WRITE TO DATABASE =====
+  if (process.env.POSTGRES_URL) {
+    console.log("\n📊 Writing data to database...");
+    
+    try {
+      db.initDb();
+      
+      // Clear existing data for fresh rebuild
+      await db.clearAllData();
+      
+      // Write teams
+      console.log("Writing teams...");
+      for (const row of d1Rows) {
+        const teamStat = teamSeasonStats.get(row.teamId);
+        if (teamStat) {
+          await db.upsertTeam({
+            teamId: row.teamId,
+            teamName: row.team,
+            conference: row.conference,
+            games: row.games,
+            wins: teamStat.wins,
+            losses: teamStat.losses,
+            adjO: row.adjO,
+            adjD: row.adjD,
+            adjEM: row.adjEM,
+            adjT: row.adjT,
+            points: teamStat.points,
+            opp_points: teamStat.opp_points,
+            fgm: teamStat.fgm,
+            fga: teamStat.fga,
+            tpm: teamStat.tpm,
+            tpa: teamStat.tpa,
+            ftm: teamStat.ftm,
+            fta: teamStat.fta,
+            orb: teamStat.orb,
+            drb: teamStat.drb,
+            trb: teamStat.trb,
+            ast: teamStat.ast,
+            stl: teamStat.stl,
+            blk: teamStat.blk,
+            tov: teamStat.tov,
+            pf: teamStat.pf,
+            opp_fgm: teamStat.opp_fgm,
+            opp_fga: teamStat.opp_fga,
+            opp_tpm: teamStat.opp_tpm,
+            opp_tpa: teamStat.opp_tpa,
+            opp_ftm: teamStat.opp_ftm,
+            opp_fta: teamStat.opp_fta,
+            opp_orb: teamStat.opp_orb,
+            opp_drb: teamStat.opp_drb,
+            opp_trb: teamStat.opp_trb,
+            opp_ast: teamStat.opp_ast,
+            opp_stl: teamStat.opp_stl,
+            opp_blk: teamStat.opp_blk,
+            opp_tov: teamStat.opp_tov,
+            opp_pf: teamStat.opp_pf,
+          });
+        }
+      }
+      console.log(`✅ Wrote ${d1Rows.length} teams to database`);
+      
+      // Write games
+      console.log("Writing games...");
+      for (const game of gamesLog) {
+        await db.insertGame(game);
+      }
+      console.log(`✅ Wrote ${gamesLog.length} games to database`);
+      
+      // Write players
+      console.log("Writing players...");
+      for (const player of d1Players) {
+        await db.upsertPlayer(player);
+      }
+      console.log(`✅ Wrote ${d1Players.length} players to database`);
+      
+      // Write player game stats
+      console.log("Writing player game stats...");
+      let playerGameCount = 0;
+      for (const game of gamesLog) {
+        if (game.players && Array.isArray(game.players)) {
+          for (const teamData of game.players) {
+            for (const p of teamData.players) {
+              await db.insertPlayerGame(game.gameId, p.playerId, teamData.teamId, p);
+              playerGameCount++;
+            }
+          }
+        }
+      }
+      console.log(`✅ Wrote ${playerGameCount} player game records to database`);
+      
+      await db.closeDb();
+      console.log("\n🎉 DATABASE UPDATED!");
+      
+    } catch (err) {
+      console.error("❌ Database write failed:", err);
+      console.log("Continuing with JSON files only...");
+    }
+  } else {
+    console.log("\n⚠️  No POSTGRES_URL found - skipping database write");
+  }
 }
 
 main().catch((e) => {
