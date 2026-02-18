@@ -1,104 +1,94 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 
-type Row = {
-  team: string;
-  teamId: string;
-  games?: number;
-  adjO?: number;
-  adjD?: number;
-  adjEM?: number;
-  adjT?: number;
-  [k: string]: any;
-};
-
-function num(x: any): number | null {
-  const n = Number(x);
-  return Number.isFinite(n) ? n : null;
+async function fetchTeams() {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/teams`, {
+    cache: 'no-store'
+  });
+  
+  if (!res.ok) {
+    throw new Error('Failed to fetch teams');
+  }
+  
+  return res.json();
 }
 
-async function getRatings(): Promise<{ updated: string | null; rows: Row[] }> {
-  const h = await headers();
-  const host = h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const url = `${proto}://${host}/data/ratings.json`;
+export default async function HomePage() {
+  const { rows, updated } = await fetchTeams();
 
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Failed to load ratings.json (${res.status})`);
-  const payload = await res.json();
-
-  const rows: Row[] =
-    payload?.rows ??
-    payload?.data?.rows ??
-    payload?.ratings?.rows ??
-    payload?.result?.rows ??
-    [];
-
-  const updated =
-    payload?.generated_at_utc ??
-    payload?.generated_at ??
-    payload?.updated_at ??
-    payload?.last_updated ??
-    null;
-
-  return { updated, rows };
-}
-
-export default async function Home() {
-  const data = await getRatings();
-  const rows = (data.rows ?? []).filter((r) => r?.team);
+  const updatedDate = updated
+    ? new Date(updated).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Baseline Analytics (Season-to-date)</h1>
-      <p style={{ opacity: 0.8 }}>Updated: {data.updated ? String(data.updated) : "—"}</p>
+    <main style={{ maxWidth: 1200, margin: "0 auto", padding: 20 }}>
+      <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>
+        Sideline Stats - Women's College Basketball
+      </h1>
+      {updatedDate && (
+        <p style={{ color: "#666", marginBottom: 24 }}>
+          Data through {updatedDate}
+        </p>
+      )}
 
-      <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 12 }}>
-        <thead>
-          <tr>
-            {["Rk", "Team", "G", "AdjO", "AdjD", "AdjEM", "AdjT"].map((col) => (
-              <th
-                key={col}
-                style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #ddd" }}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+          <thead>
+            <tr style={{ background: "#2d3748", color: "#fff" }}>
+              <th style={{ padding: "10px 12px", textAlign: "left" }}>Rank</th>
+              <th style={{ padding: "10px 12px", textAlign: "left" }}>Team</th>
+              <th style={{ padding: "10px 12px", textAlign: "left" }}>Conference</th>
+              <th style={{ padding: "10px 12px", textAlign: "right" }}>Record</th>
+              <th style={{ padding: "10px 12px", textAlign: "right" }}>AdjEM</th>
+              <th style={{ padding: "10px 12px", textAlign: "right" }}>AdjO</th>
+              <th style={{ padding: "10px 12px", textAlign: "right" }}>AdjD</th>
+              <th style={{ padding: "10px 12px", textAlign: "right" }}>AdjT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row: any, idx: number) => (
+              <tr
+                key={row.teamId}
+                style={{
+                  borderBottom: "1px solid #e5e7eb",
+                  background: idx % 2 === 0 ? "#fff" : "#f9fafb",
+                }}
               >
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => {
-            const adjO = num(r.adjO);
-            const adjD = num(r.adjD);
-            const adjEM = num(r.adjEM);
-            const adjT = num(r.adjT);
-
-            return (
-              <tr key={r.teamId ?? `${r.team}-${i}`}>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{i + 1}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
-                  <Link href={`/team/${r.teamId}`} style={{ color: "inherit", textDecoration: "none" }}>
-                    {r.team}
+                <td style={{ padding: "10px 12px" }}>{idx + 1}</td>
+                <td style={{ padding: "10px 12px" }}>
+                  <Link
+                    href={`/team/${row.teamId}`}
+                    style={{ color: "#2563eb", textDecoration: "none", fontWeight: 600 }}
+                  >
+                    {row.team}
                   </Link>
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>{r.games ?? "—"}</td>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
-                  {adjO === null ? "—" : adjO.toFixed(1)}
+                <td style={{ padding: "10px 12px", textTransform: "uppercase", fontSize: 12, color: "#666" }}>
+                  {row.conference || "—"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
-                  {adjD === null ? "—" : adjD.toFixed(1)}
+                <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                  {row.games > 0 ? `${row.games}` : "—"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
-                  {adjEM === null ? "—" : adjEM.toFixed(1)}
+                <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>
+                  {row.adjEM != null ? row.adjEM.toFixed(1) : "—"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #f0f0f0" }}>
-                  {adjT === null ? "—" : adjT.toFixed(1)}
+                <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                  {row.adjO != null ? row.adjO.toFixed(1) : "—"}
+                </td>
+                <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                  {row.adjD != null ? row.adjD.toFixed(1) : "—"}
+                </td>
+                <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                  {row.adjT != null ? row.adjT.toFixed(1) : "—"}
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }
