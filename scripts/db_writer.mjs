@@ -189,7 +189,9 @@ export async function upsertPlayer(player) {
   
   await db.query(query, [
     player.playerId, player.teamId, player.teamName,
-    player.firstName, player.lastName, player.number, player.position, player.year,
+    player.firstName, player.lastName, 
+    player.number && !isNaN(parseInt(player.number)) ? parseInt(player.number) : null, 
+    player.position, player.year,
     player.games, player.starts, player.minutes,
     player.fgm, player.fga, player.tpm, player.tpa, player.ftm, player.fta,
     player.orb, player.drb, player.trb, player.ast, player.stl, player.blk, player.tov, player.pf, player.points
