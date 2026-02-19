@@ -30,12 +30,25 @@ export async function GET(
     let whereClause = 'WHERE (home_team_id = $1 OR away_team_id = $1)';
     
     if (confOnly) {
-      whereClause += ' AND is_conference_game = true';
+      // Get the team's conference first, then filter games where opponent is in same conference
+      const teamConf = await pool.query('SELECT conference FROM teams WHERE team_id = $1', [teamId]);
+      const conference = teamConf.rows[0]?.conference;
+      
+      if (conference) {
+        whereClause += ` AND (
+          (home_team_id = $1 AND away_team_id IN (SELECT team_id FROM teams WHERE conference = '${conference}'))
+          OR
+          (away_team_id = $1 AND home_team_id IN (SELECT team_id FROM teams WHERE conference = '${conference}'))
+        )`;
+      }
     }
     
     if (d1Only) {
       const confList = D1_CONFERENCES.map(c => `'${c}'`).join(',');
-      whereClause += ` AND home_conference IN (${confList}) AND away_conference IN (${confList})`;
+      whereClause += ` AND (
+        home_team_id IN (SELECT team_id FROM teams WHERE conference IN (${confList}))
+        AND away_team_id IN (SELECT team_id FROM teams WHERE conference IN (${confList}))
+      )`;
     }
 
     // Aggregate stats from filtered games
@@ -105,7 +118,43 @@ export async function GET(
       teamId,
       teamName: teamInfo.rows[0]?.team_name || '',
       conference: teamInfo.rows[0]?.conference || '',
-      ...result.rows[0]
+      games: parseInt(result.rows[0].games) || 0,
+      wins: parseInt(result.rows[0].wins) || 0,
+      losses: parseInt(result.rows[0].losses) || 0,
+      points: parseInt(result.rows[0].points) || 0,
+      opp_points: parseInt(result.rows[0].opp_points) || 0,
+      fgm: parseInt(result.rows[0].fgm) || 0,
+      fga: parseInt(result.rows[0].fga) || 0,
+      tpm: parseInt(result.rows[0].tpm) || 0,
+      tpa: parseInt(result.rows[0].tpa) || 0,
+      ftm: parseInt(result.rows[0].ftm) || 0,
+      fta: parseInt(result.rows[0].fta) || 0,
+      orb: parseInt(result.rows[0].orb) || 0,
+      drb: parseInt(result.rows[0].drb) || 0,
+      trb: parseInt(result.rows[0].trb) || 0,
+      ast: parseInt(result.rows[0].ast) || 0,
+      stl: parseInt(result.rows[0].stl) || 0,
+      blk: parseInt(result.rows[0].blk) || 0,
+      tov: parseInt(result.rows[0].tov) || 0,
+      pf: parseInt(result.rows[0].pf) || 0,
+      opp_fgm: parseInt(result.rows[0].opp_fgm) || 0,
+      opp_fga: parseInt(result.rows[0].opp_fga) || 0,
+      opp_tpm: parseInt(result.rows[0].opp_tpm) || 0,
+      opp_tpa: parseInt(result.rows[0].opp_tpa) || 0,
+      opp_ftm: parseInt(result.rows[0].opp_ftm) || 0,
+      opp_fta: parseInt(result.rows[0].opp_fta) || 0,
+      opp_orb: parseInt(result.rows[0].opp_orb) || 0,
+      opp_drb: parseInt(result.rows[0].opp_drb) || 0,
+      opp_trb: parseInt(result.rows[0].opp_trb) || 0,
+      opp_ast: parseInt(result.rows[0].opp_ast) || 0,
+      opp_stl: parseInt(result.rows[0].opp_stl) || 0,
+      opp_blk: parseInt(result.rows[0].opp_blk) || 0,
+      opp_tov: parseInt(result.rows[0].opp_tov) || 0,
+      opp_pf: parseInt(result.rows[0].opp_pf) || 0,
+      adjO: null,
+      adjD: null,
+      adjEM: null,
+      adjT: null,
     });
   } catch (error) {
     console.error('Database error:', error);
