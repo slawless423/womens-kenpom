@@ -16,20 +16,23 @@ export async function GET(
   const d1Only = searchParams.get('d1') === 'true';
 
   try {
-    let whereClause = 'WHERE home_team_id = $1 OR away_team_id = $1';
-    
+    // Get team's conference if filtering by conference
+    let teamConference = null;
     if (confOnly) {
-      // Get team's conference and filter by opponents in same conference
       const teamConf = await pool.query('SELECT conference FROM teams WHERE team_id = $1', [teamId]);
-      const conference = teamConf.rows[0]?.conference;
-      
-      if (conference) {
-        whereClause += ` AND (
-          (home_team_id = $1 AND away_team_id IN (SELECT team_id FROM teams WHERE conference = '${conference}'))
-          OR
-          (away_team_id = $1 AND home_team_id IN (SELECT team_id FROM teams WHERE conference = '${conference}'))
-        )`;
-      }
+      teamConference = teamConf.rows[0]?.conference;
+    }
+    
+    let whereClause = 'WHERE home_team_id = $1 OR away_team_id = $1';
+    const queryParams = [teamId];
+    
+    if (confOnly && teamConference) {
+      whereClause += ` AND (
+        (home_team_id = $1 AND away_team_id IN (SELECT team_id FROM teams WHERE conference = $2))
+        OR
+        (away_team_id = $1 AND home_team_id IN (SELECT team_id FROM teams WHERE conference = $2))
+      )`;
+      queryParams.push(teamConference);
     }
     
     if (d1Only) {
@@ -75,7 +78,7 @@ export async function GET(
       FROM games
       ${whereClause}
       ORDER BY game_date ASC
-    `, [teamId]);
+    `, queryParams);
 
     // Transform to match expected format
     const games = result.rows.map(row => ({
