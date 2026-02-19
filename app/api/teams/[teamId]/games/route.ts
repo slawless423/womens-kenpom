@@ -24,15 +24,13 @@ export async function GET(
     }
     
     let whereClause = 'WHERE home_team_id = $1 OR away_team_id = $1';
-    const queryParams = [teamId];
     
     if (confOnly && teamConference) {
       whereClause += ` AND (
-        (home_team_id = $1 AND away_team_id IN (SELECT team_id FROM teams WHERE conference = $2))
+        (home_team_id = $1 AND away_team_id IN (SELECT team_id FROM teams WHERE conference = '${teamConference}'))
         OR
-        (away_team_id = $1 AND home_team_id IN (SELECT team_id FROM teams WHERE conference = $2))
+        (away_team_id = $1 AND home_team_id IN (SELECT team_id FROM teams WHERE conference = '${teamConference}'))
       )`;
-      queryParams.push(teamConference);
     }
     
     if (d1Only) {
@@ -78,7 +76,7 @@ export async function GET(
       FROM games
       ${whereClause}
       ORDER BY game_date ASC
-    `, queryParams);
+    `, [teamId]);
 
     // Transform to match expected format
     const games = result.rows.map(row => ({
@@ -88,6 +86,11 @@ export async function GET(
       homeTeam: row.homeTeam,
       homeScore: row.homeScore,
       homeConf: row.homeConf,
+      awayId: row.awayId,
+      awayTeam: row.awayTeam,
+      awayScore: row.awayScore,
+      awayConf: row.awayConf,
+      isConferenceGame: row.isConferenceGame,
       homeStats: {
         fgm: row.home_fgm,
         fga: row.home_fga,
@@ -102,12 +105,8 @@ export async function GET(
         stl: row.home_stl,
         blk: row.home_blk,
         tov: row.home_tov,
-        pf: row.home_pf
+        pf: row.home_pf,
       },
-      awayId: row.awayId,
-      awayTeam: row.awayTeam,
-      awayScore: row.awayScore,
-      awayConf: row.awayConf,
       awayStats: {
         fgm: row.away_fgm,
         fga: row.away_fga,
@@ -122,9 +121,8 @@ export async function GET(
         stl: row.away_stl,
         blk: row.away_blk,
         tov: row.away_tov,
-        pf: row.away_pf
-      },
-      isConferenceGame: row.isConferenceGame
+        pf: row.away_pf,
+      }
     }));
 
     return NextResponse.json({ games });
@@ -133,3 +131,5 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 });
   }
 }
+
+export {};
