@@ -294,7 +294,7 @@ export default async function TeamPage({
                   <tr key={p.playerId} style={{ borderBottom: "1px solid #f0f0f0" }}>
                     <td style={{ padding: "6px 8px", fontWeight: 600 }}>{p.firstName} {p.lastName}</td>
                     <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.games}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.minutes.toFixed(1)}</td>
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{parseFloat(p.minutes).toFixed(1)}</td>
                     <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.points}</td>
                     <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.fga > 0 ? ((p.fgm / p.fga) * 100).toFixed(1) : "—"}</td>
                     <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.tpa > 0 ? ((p.tpm / p.tpa) * 100).toFixed(1) : "—"}</td>
