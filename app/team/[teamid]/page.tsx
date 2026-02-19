@@ -156,6 +156,49 @@ export default async function TeamPage({
   const allTeamStats: TeamStats[] = allTeamStatsData.teams;
   const ff = calcFourFactors(team);
 
+  // Calculate Four Factors for all teams for ranking
+  const allTeamFactors = allTeamStats.map(t => ({
+    teamId: t.teamId,
+    ff: calcFourFactors(t)
+  }));
+
+  // Ranking helper
+  const getRank = (value: number, allValues: number[], higherIsBetter: boolean) => {
+    const sorted = [...allValues].sort((a, b) => higherIsBetter ? b - a : a - b);
+    const idx = sorted.findIndex(v => Math.abs(v - value) < 0.001);
+    return idx + 1;
+  };
+
+  // Calculate rankings
+  const rankings = {
+    off: {
+      efg: getRank(ff.off.efg, allTeamFactors.map(t => t.ff.off.efg), true),
+      tov: getRank(ff.off.tov, allTeamFactors.map(t => t.ff.off.tov), false),
+      orb: getRank(ff.off.orb, allTeamFactors.map(t => t.ff.off.orb), true),
+      ftr: getRank(ff.off.ftr, allTeamFactors.map(t => t.ff.off.ftr), true),
+      two: getRank(ff.off.two, allTeamFactors.map(t => t.ff.off.two), true),
+      three: getRank(ff.off.three, allTeamFactors.map(t => t.ff.off.three), true),
+      ft: getRank(ff.off.ft, allTeamFactors.map(t => t.ff.off.ft), true),
+      threePaRate: getRank(ff.off.threePaRate, allTeamFactors.map(t => t.ff.off.threePaRate), true),
+      blk: getRank(ff.off.blk, allTeamFactors.map(t => t.ff.off.blk), true),
+      stl: getRank(ff.off.stl, allTeamFactors.map(t => t.ff.off.stl), true),
+      ast: getRank(ff.off.ast, allTeamFactors.map(t => t.ff.off.ast), true),
+    },
+    def: {
+      efg: getRank(ff.def.efg, allTeamFactors.map(t => t.ff.def.efg), false),
+      tov: getRank(ff.def.tov, allTeamFactors.map(t => t.ff.def.tov), true),
+      orb: getRank(ff.def.orb, allTeamFactors.map(t => t.ff.def.orb), false),
+      ftr: getRank(ff.def.ftr, allTeamFactors.map(t => t.ff.def.ftr), false),
+      two: getRank(ff.def.two, allTeamFactors.map(t => t.ff.def.two), false),
+      three: getRank(ff.def.three, allTeamFactors.map(t => t.ff.def.three), false),
+      ft: getRank(ff.def.ft, allTeamFactors.map(t => t.ff.def.ft), false),
+      threePaRate: getRank(ff.def.threePaRate, allTeamFactors.map(t => t.ff.def.threePaRate), false),
+      blk: getRank(ff.def.blk, allTeamFactors.map(t => t.ff.def.blk), true),
+      stl: getRank(ff.def.stl, allTeamFactors.map(t => t.ff.def.stl), true),
+      ast: getRank(ff.def.ast, allTeamFactors.map(t => t.ff.def.ast), false),
+    }
+  };
+
   // Calculate league averages
   const leagueAvg = allTeamStats.length > 0 ? calcFourFactors(
     allTeamStats.reduce((acc, t) => {
@@ -205,10 +248,10 @@ export default async function TeamPage({
 
       {/* STATS CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <StatCard title="Off. Efficiency" value={team.adjO} />
-        <StatCard title="Def. Efficiency" value={team.adjD} />
-        <StatCard title="Raw Margin" value={team.adjEM} prefix="+" />
-        <StatCard title="Tempo" value={team.adjT} />
+        <StatCard title="Off. Efficiency" value={team.adjO} rank={teamsData.rows.filter((r: any) => r.adjO > team.adjO).length + 1} />
+        <StatCard title="Def. Efficiency" value={team.adjD} rank={teamsData.rows.filter((r: any) => r.adjD < team.adjD).length + 1} />
+        <StatCard title="Raw Margin" value={team.adjEM} prefix="+" rank={teamsData.rows.filter((r: any) => r.adjEM > team.adjEM).length + 1} />
+        <StatCard title="Tempo" value={team.adjT} rank={teamsData.rows.filter((r: any) => r.adjT > team.adjT).length + 1} />
       </div>
 
       {/* TOGGLES */}
@@ -225,27 +268,27 @@ export default async function TeamPage({
           <StatsTable
             title="Four Factors"
             rows={[
-              { label: "Eff. FG%", off: ff.off.efg, def: ff.def.efg, avg: leagueAvg?.off.efg },
-              { label: "TO%", off: ff.off.tov, def: ff.def.tov, avg: leagueAvg?.off.tov },
-              { label: "OR%", off: ff.off.orb, def: ff.def.orb, avg: leagueAvg?.off.orb },
-              { label: "FTA/FGA", off: ff.off.ftr, def: ff.def.ftr, avg: leagueAvg?.off.ftr },
+              { label: "Eff. FG%", off: ff.off.efg, def: ff.def.efg, offRank: rankings.off.efg, defRank: rankings.def.efg },
+              { label: "TO%", off: ff.off.tov, def: ff.def.tov, offRank: rankings.off.tov, defRank: rankings.def.tov },
+              { label: "OR%", off: ff.off.orb, def: ff.def.orb, offRank: rankings.off.orb, defRank: rankings.def.orb },
+              { label: "FTA/FGA", off: ff.off.ftr, def: ff.def.ftr, offRank: rankings.off.ftr, defRank: rankings.def.ftr },
             ]}
           />
           <StatsTable
             title="Shooting"
             rows={[
-              { label: "2P%", off: ff.off.two, def: ff.def.two, avg: leagueAvg?.off.two },
-              { label: "3P%", off: ff.off.three, def: ff.def.three, avg: leagueAvg?.off.three },
-              { label: "FT%", off: ff.off.ft, def: ff.def.ft, avg: leagueAvg?.off.ft },
+              { label: "2P%", off: ff.off.two, def: ff.def.two, offRank: rankings.off.two, defRank: rankings.def.two },
+              { label: "3P%", off: ff.off.three, def: ff.def.three, offRank: rankings.off.three, defRank: rankings.def.three },
+              { label: "FT%", off: ff.off.ft, def: ff.def.ft, offRank: rankings.off.ft, defRank: rankings.def.ft },
             ]}
           />
           <StatsTable
             title="Other Stats"
             rows={[
-              { label: "3PA/FGA", off: ff.off.threePaRate, def: ff.def.threePaRate, avg: leagueAvg?.off.threePaRate },
-              { label: "Block%", off: ff.off.blk, def: ff.def.blk, avg: leagueAvg?.off.blk },
-              { label: "Steal%", off: ff.off.stl, def: ff.def.stl, avg: leagueAvg?.off.stl },
-              { label: "Assist%", off: ff.off.ast, def: ff.def.ast, avg: leagueAvg?.off.ast },
+              { label: "3PA/FGA", off: ff.off.threePaRate, def: ff.def.threePaRate, offRank: rankings.off.threePaRate, defRank: rankings.def.threePaRate },
+              { label: "Block%", off: ff.off.blk, def: ff.def.blk, offRank: rankings.off.blk, defRank: rankings.def.blk },
+              { label: "Steal%", off: ff.off.stl, def: ff.def.stl, offRank: rankings.off.stl, defRank: rankings.def.stl },
+              { label: "Assist%", off: ff.off.ast, def: ff.def.ast, offRank: rankings.off.ast, defRank: rankings.def.ast },
             ]}
           />
         </div>
@@ -339,13 +382,14 @@ export default async function TeamPage({
 }
 
 // Helper components
-function StatCard({ title, value, prefix = "" }: { title: string; value: number | null; prefix?: string }) {
+function StatCard({ title, value, prefix = "", rank }: { title: string; value: number | null; prefix?: string; rank?: number }) {
   return (
     <div style={{ background: ACCENT_LIGHT, padding: 20, borderRadius: 8, border: `1px solid ${ACCENT_BORDER}` }}>
       <div style={{ fontSize: 12, color: "#666", marginBottom: 4, textTransform: "uppercase" }}>{title}</div>
       <div style={{ fontSize: 32, fontWeight: 800 }}>
         {value !== null && isFinite(value) ? `${prefix}${value.toFixed(1)}` : "—"}
       </div>
+      {rank && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>#{rank}</div>}
     </div>
   );
 }
@@ -377,7 +421,7 @@ function SectionTitle({ title }: { title: string }) {
   );
 }
 
-function StatsTable({ title, rows }: { title: string; rows: Array<{ label: string; off: number; def: number; avg?: number | null }> }) {
+function StatsTable({ title, rows }: { title: string; rows: Array<{ label: string; off: number; def: number; offRank?: number; defRank?: number }> }) {
   return (
     <div style={{ marginBottom: 16, border: "1px solid #e0e0e0" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
@@ -392,8 +436,14 @@ function StatsTable({ title, rows }: { title: string; rows: Array<{ label: strin
           {rows.map((row, i) => (
             <tr key={i} style={{ borderBottom: i === rows.length - 1 ? "none" : "1px solid #f0f0f0" }}>
               <td style={{ padding: "6px 10px" }}>{row.label}</td>
-              <td style={{ padding: "6px 10px", textAlign: "right" }}>{isFinite(row.off) ? row.off.toFixed(1) : "—"}</td>
-              <td style={{ padding: "6px 10px", textAlign: "right" }}>{isFinite(row.def) ? row.def.toFixed(1) : "—"}</td>
+              <td style={{ padding: "6px 10px", textAlign: "right" }}>
+                {isFinite(row.off) ? row.off.toFixed(1) : "—"}
+                {row.offRank && <span style={{ color: "#666", fontSize: 10, marginLeft: 4 }}>#{row.offRank}</span>}
+              </td>
+              <td style={{ padding: "6px 10px", textAlign: "right" }}>
+                {isFinite(row.def) ? row.def.toFixed(1) : "—"}
+                {row.defRank && <span style={{ color: "#666", fontSize: 10, marginLeft: 4 }}>#{row.defRank}</span>}
+              </td>
             </tr>
           ))}
         </tbody>
