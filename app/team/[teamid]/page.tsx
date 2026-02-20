@@ -382,7 +382,7 @@ function PlayerStatsKenPom({ players, team }: { players: any[]; team: any }) {
   const drb = team.trb - team.orb;
   
   const calculatePlayerStats = (p: any) => {
-    const minPct = teamMinutes > 0 ? (p.minutes / teamMinutes) * 100 : 0;
+    const minPct = teamMinutes > 0 ? (p.minutes / teamMinutes) * 100 * 5 : 0;
     const twoPA = p.fga - p.tpa;
     const twoPM = p.fgm - p.tpm;
     
@@ -408,9 +408,16 @@ function PlayerStatsKenPom({ players, team }: { players: any[]; team: any }) {
     const aRate = playerPoss100 > 0 ? (p.ast / playerPoss100) * 100 : 0;
     const toRate = playerPoss100 > 0 ? (p.tov / playerPoss100) * 100 : 0;
     
-    // Block/Steal % (percentage of opponent 2PA/Poss while on floor)
-    const blkPct = p.minutes > 0 ? (p.blk / p.minutes) * (teamMinutes / 5) / team.games * 100 : 0;
-    const stlPct = p.minutes > 0 ? (p.stl / p.minutes) * (teamMinutes / 5) / team.games * 100 : 0;
+    // Block/Steal % (proper KenPom formulas)
+    const minutesPct = teamMinutes > 0 ? p.minutes / teamMinutes : 0;
+    const oppPoss = team.opp_fga - team.opp_orb + team.opp_tov + 0.475 * team.opp_fta;
+    const opp2PA = team.opp_fga - team.opp_tpa;
+    
+    // Blk% = blocks / (opponent 2PA while player is on floor)
+    const blkPct = (minutesPct * opp2PA) > 0 ? (p.blk / (minutesPct * opp2PA)) * 100 : 0;
+    
+    // Stl% = steals / (opponent possessions while player is on floor)
+    const stlPct = (minutesPct * oppPoss) > 0 ? (p.stl / (minutesPct * oppPoss)) * 100 : 0;
     
     // Per 40
     const per40 = p.minutes > 0 ? 40 / p.minutes : 0;
