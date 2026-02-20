@@ -367,47 +367,154 @@ export default async function TeamPage({
 
       {/* PLAYER STATS */}
       {playersData.players.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
-          <SectionTitle title="Player Stats" />
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <thead>
-                <tr style={{ borderBottom: `2px solid ${ACCENT}` }}>
-                  <th style={{ padding: "6px 8px", textAlign: "left" }}>Player</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>G</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>Min</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>Pts</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>FG%</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>3P%</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>FT%</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>Reb</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>Ast</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>Stl</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right" }}>Blk</th>
-                </tr>
-              </thead>
-              <tbody>
-                {playersData.players.map((p: any) => (
-                  <tr key={p.playerId} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                    <td style={{ padding: "6px 8px", fontWeight: 600 }}>{p.firstName} {p.lastName}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.games}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{parseFloat(p.minutes).toFixed(1)}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.points}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.fga > 0 ? ((p.fgm / p.fga) * 100).toFixed(1) : "—"}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.tpa > 0 ? ((p.tpm / p.tpa) * 100).toFixed(1) : "—"}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.fta > 0 ? ((p.ftm / p.fta) * 100).toFixed(1) : "—"}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.trb}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.ast}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.stl}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{p.blk}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <PlayerStatsKenPom players={playersData.players} team={team} />
       )}
     </main>
+  );
+}
+
+// Player stats component with KenPom advanced metrics
+function PlayerStatsKenPom({ players, team }: { players: any[]; team: any }) {
+  // Calculate team totals for percentages
+  const teamMinutes = team.games * 200; // 5 players * 40 minutes
+  const teamPoss = team.fga - team.orb + team.tov + 0.475 * team.fta;
+  const opp_drb = team.opp_trb - team.opp_orb;
+  const drb = team.trb - team.orb;
+  
+  const calculatePlayerStats = (p: any) => {
+    const minPct = teamMinutes > 0 ? (p.minutes / teamMinutes) * 100 : 0;
+    const twoPA = p.fga - p.tpa;
+    const twoPM = p.fgm - p.tpm;
+    
+    // Usage %
+    const playerPoss = p.fga + 0.44 * p.fta + p.tov;
+    const usagePct = teamPoss > 0 ? (playerPoss / teamPoss) * 100 : 0;
+    
+    // Shot %
+    const shotPct = team.fga > 0 ? (p.fga / team.fga) * 100 : 0;
+    
+    // eFG% and TS%
+    const efg = p.fga > 0 ? ((p.fgm + 0.5 * p.tpm) / p.fga) * 100 : 0;
+    const ts = (p.fga + 0.44 * p.fta) > 0 ? (p.points / (2 * (p.fga + 0.44 * p.fta))) * 100 : 0;
+    
+    // Rebound % (per minute rates scaled to team)
+    const orPct = p.minutes > 0 && (team.orb + opp_drb) > 0 
+      ? (p.orb / p.minutes) * (teamMinutes / 5) / (team.orb + opp_drb) * 100 : 0;
+    const drPct = p.minutes > 0 && (drb + team.opp_orb) > 0
+      ? (p.drb / p.minutes) * (teamMinutes / 5) / (drb + team.opp_orb) * 100 : 0;
+    
+    // Assist/TO Rate (per 100 possessions)
+    const playerPoss100 = p.minutes > 0 ? (teamPoss / teamMinutes) * p.minutes : 0;
+    const aRate = playerPoss100 > 0 ? (p.ast / playerPoss100) * 100 : 0;
+    const toRate = playerPoss100 > 0 ? (p.tov / playerPoss100) * 100 : 0;
+    
+    // Block/Steal % (percentage of opponent 2PA/Poss while on floor)
+    const blkPct = p.minutes > 0 ? (p.blk / p.minutes) * (teamMinutes / 5) / team.games * 100 : 0;
+    const stlPct = p.minutes > 0 ? (p.stl / p.minutes) * (teamMinutes / 5) / team.games * 100 : 0;
+    
+    // Per 40
+    const per40 = p.minutes > 0 ? 40 / p.minutes : 0;
+    const fc40 = p.pf * per40;
+    
+    // FT Rate
+    const ftRate = p.fga > 0 ? (p.fta / p.fga) * 100 : 0;
+    
+    // Shooting %s
+    const ftPct = p.fta > 0 ? (p.ftm / p.fta) * 100 : 0;
+    const twoPct = twoPA > 0 ? (twoPM / twoPA) * 100 : 0;
+    const threePct = p.tpa > 0 ? (p.tpm / p.tpa) * 100 : 0;
+    
+    // ORtg (simplified)
+    const ortg = playerPoss > 0 ? (p.points / playerPoss) * 100 : 0;
+    
+    return {
+      minPct, ortg, usagePct, shotPct, efg, ts, orPct, drPct,
+      aRate, toRate, blkPct, stlPct, fc40, ftRate, ftPct, twoPct, threePct,
+      twoPM, twoPA, ftm: p.ftm, fta: p.fta, tpm: p.tpm, tpa: p.tpa,
+    };
+  };
+
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{
+        fontSize: 12, fontWeight: 800, textTransform: "uppercase",
+        letterSpacing: 0.5, color: "#fff", background: ACCENT,
+        padding: "6px 10px"
+      }}>
+        Player Stats
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, whiteSpace: "nowrap" }}>
+          <thead>
+            <tr style={{ borderBottom: `2px solid ${ACCENT}`, background: ACCENT_LIGHT }}>
+              <th style={{ padding: "6px 4px", textAlign: "left", position: "sticky", left: 0, background: ACCENT_LIGHT, zIndex: 1 }}>Player</th>
+              <th style={{ padding: "6px 4px", textAlign: "center" }}>Ht</th>
+              <th style={{ padding: "6px 4px", textAlign: "center" }}>Yr</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>G</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>S</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>%Min</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>ORtg</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>%Poss</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>%Shot</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>eFG%</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>TS%</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>OR%</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>DR%</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>ARate</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>TORate</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Blk%</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Stl%</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>FC/40</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>FD/40</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>FTRate</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>FTM-A</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Pct</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>2PM-A</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Pct</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>3PM-A</th>
+              <th style={{ padding: "6px 4px", textAlign: "right" }}>Pct</th>
+            </tr>
+          </thead>
+          <tbody>
+            {players.map((p: any) => {
+              const stats = calculatePlayerStats(p);
+              return (
+                <tr key={p.playerId} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                  <td style={{ padding: "6px 4px", fontWeight: 600, position: "sticky", left: 0, background: "#fff", zIndex: 1 }}>
+                    {p.firstName} {p.lastName}
+                  </td>
+                  <td style={{ padding: "6px 4px", textAlign: "center" }}>—</td>
+                  <td style={{ padding: "6px 4px", textAlign: "center" }}>{p.year || "—"}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{p.games}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{p.starts || 0}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.minPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.ortg.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.usagePct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.shotPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.efg.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.ts.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.orPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.drPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.aRate.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.toRate.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.blkPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.stlPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.fc40.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>—</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.ftRate.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.ftm}-{stats.fta}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.ftPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.twoPM}-{stats.twoPA}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.twoPct.toFixed(1)}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.tpm}-{stats.tpa}</td>
+                  <td style={{ padding: "6px 4px", textAlign: "right" }}>{stats.threePct.toFixed(1)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
