@@ -1,13 +1,10 @@
 name: Daily Update Ratings
-
 on:
   schedule:
     - cron: '0 11 * * *'  # 11 AM UTC daily
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -21,8 +18,16 @@ jobs:
         with:
           node-version: 20
       
+      - name: Install dependencies
+        run: npm install pg
+      
       - name: Run incremental update
         run: node scripts/build_ratings.mjs
+      
+      - name: Write to Database
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        run: node scripts/db_writer.mjs
       
       - name: Commit and push
         run: |
