@@ -30,9 +30,25 @@ export default async function HomePage() {
 
   return (
     <main style={{ maxWidth: 1200, margin: "0 auto", padding: 20 }}>
-      <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>
-        Sideline Stats - Women's College Basketball
-      </h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 0 }}>
+          Sideline Stats - Women's College Basketball
+        </h1>
+        <Link 
+          href="/players" 
+          style={{ 
+            padding: "10px 20px", 
+            background: "#4f46e5", 
+            color: "#fff", 
+            textDecoration: "none", 
+            borderRadius: 6,
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          Player Database
+        </Link>
+      </div>
       {updatedDate && (
         <p style={{ color: "#666", marginBottom: 24 }}>
           Data through {updatedDate}
