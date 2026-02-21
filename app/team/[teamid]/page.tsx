@@ -369,6 +369,89 @@ export default async function TeamPage({
       {playersData.players.length > 0 && (
         <PlayerStatsKenPom players={playersData.players} team={team} />
       )}
+
+      {/* TEAM TOTALS */}
+      <div style={{ marginBottom: 32 }}>
+        <SectionTitle title="Team Totals" />
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${ACCENT}`, background: ACCENT_LIGHT }}>
+                <th style={{ padding: "6px 8px", textAlign: "left" }}>Category</th>
+                <th style={{ padding: "6px 8px", textAlign: "right" }}>Team</th>
+                <th style={{ padding: "6px 8px", textAlign: "right" }}>Opponent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Games</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.games}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>—</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Points</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.points}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_points}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>FGM-FGA</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.fgm}-{team.fga}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_fgm}-{team.opp_fga}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>3PM-3PA</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.tpm}-{team.tpa}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_tpm}-{team.opp_tpa}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>FTM-FTA</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.ftm}-{team.fta}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_ftm}-{team.opp_fta}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Offensive Rebounds</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.orb}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_orb}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Defensive Rebounds</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.drb || (team.trb - team.orb)}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_drb || (team.opp_trb - team.opp_orb)}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Total Rebounds</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.trb}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_trb}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Assists</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.ast}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_ast}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Steals</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.stl}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_stl}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Blocks</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.blk}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_blk}</td>
+              </tr>
+              <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: "6px 8px" }}>Turnovers</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.tov}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_tov}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "6px 8px" }}>Personal Fouls</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.pf}</td>
+                <td style={{ padding: "6px 8px", textAlign: "right" }}>{team.opp_pf}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
   );
 }
