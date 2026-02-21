@@ -335,7 +335,7 @@ export default function PlayersPage() {
                   <td style={{ padding: "4px", textAlign: "right" }}>{stats.shotPct.toFixed(1)}</td>
                   <td style={{ padding: "4px", textAlign: "right" }}>{stats.efg.toFixed(1)}</td>
                   <td style={{ padding: "4px", textAlign: "right" }}>{stats.ts.toFixed(1)}</td>
-                  <td style={{ padding: "4px", textAlign: "right" }}>{stats.orPct.toFixed(1)}</td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>{stats.orbPct.toFixed(1)}</td>
                   <td style={{ padding: "4px", textAlign: "right" }}>{stats.drbPct.toFixed(1)}</td>
                   <td style={{ padding: "4px", textAlign: "right" }}>{stats.aRate.toFixed(1)}</td>
                   <td style={{ padding: "4px", textAlign: "right" }}>{stats.toRate.toFixed(1)}</td>
