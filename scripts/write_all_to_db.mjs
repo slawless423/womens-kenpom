@@ -13,12 +13,24 @@ async function main() {
   console.log('Reading JSON files...');
   const ratingsData = JSON.parse(fs.readFileSync('public/data/ratings.json', 'utf8'));
   
+  // Debug: check structure
+  console.log('Ratings data keys:', Object.keys(ratingsData));
+  
+  // Handle different possible structures
+  let teams = ratingsData.teams || ratingsData.rows || ratingsData;
+  if (!Array.isArray(teams)) {
+    console.log('❌ Could not find teams array in ratings.json');
+    console.log('Data structure:', JSON.stringify(ratingsData).substring(0, 200));
+    process.exit(1);
+  }
+  
+  console.log(`Found ${teams.length} teams`);
+  
   // Read game cache which has all parsed games
   let gamesData = [];
   try {
     const gameCache = JSON.parse(fs.readFileSync('game_cache.json', 'utf8'));
     gamesData = Object.values(gameCache).filter(g => g.success && g.data);
-    console.log(`Found ${ratingsData.teams.length} teams`);
     console.log(`Found ${gamesData.length} games from cache`);
   } catch (err) {
     console.log('No game cache found, will only sync teams');
@@ -26,7 +38,7 @@ async function main() {
   
   // Write teams
   console.log('\nWriting teams...');
-  for (const team of ratingsData.teams) {
+  for (const team of teams) {
     await upsertTeam(team);
   }
   console.log('✅ Teams written\n');
