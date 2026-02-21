@@ -12,42 +12,42 @@ async function main() {
   // Read JSON files
   console.log('Reading JSON files...');
   const ratingsData = JSON.parse(fs.readFileSync('public/data/ratings.json', 'utf8'));
-  const gamesData = JSON.parse(fs.readFileSync('public/data/all_games.json', 'utf8'));
-  const playersData = JSON.parse(fs.readFileSync('public/data/all_players.json', 'utf8'));
   
-  console.log(`Found ${ratingsData.teams.length} teams`);
-  console.log(`Found ${gamesData.games.length} games`);
-  console.log(`Found ${playersData.players.length} players\n`);
+  // Read game cache which has all parsed games
+  let gamesData = [];
+  try {
+    const gameCache = JSON.parse(fs.readFileSync('game_cache.json', 'utf8'));
+    gamesData = Object.values(gameCache).filter(g => g.success && g.data);
+    console.log(`Found ${ratingsData.teams.length} teams`);
+    console.log(`Found ${gamesData.length} games from cache`);
+  } catch (err) {
+    console.log('No game cache found, will only sync teams');
+  }
   
   // Write teams
-  console.log('Writing teams...');
+  console.log('\nWriting teams...');
   for (const team of ratingsData.teams) {
     await upsertTeam(team);
   }
   console.log('✅ Teams written\n');
   
-  // Write games
-  console.log('Writing games...');
-  let gamesWritten = 0;
-  for (const game of gamesData.games) {
-    try {
-      await insertGame(game);
-      gamesWritten++;
-      if (gamesWritten % 500 === 0) {
-        console.log(`  ${gamesWritten} games written...`);
+  // Write games from cache
+  if (gamesData.length > 0) {
+    console.log('Writing games...');
+    let gamesWritten = 0;
+    for (const cached of gamesData) {
+      try {
+        await insertGame(cached.data);
+        gamesWritten++;
+        if (gamesWritten % 500 === 0) {
+          console.log(`  ${gamesWritten} games written...`);
+        }
+      } catch (err) {
+        // Game already exists or error
       }
-    } catch (err) {
-      // Game already exists (ON CONFLICT DO NOTHING)
     }
+    console.log(`✅ ${gamesWritten} games written\n`);
   }
-  console.log(`✅ ${gamesWritten} games written\n`);
-  
-  // Write players
-  console.log('Writing players...');
-  for (const player of playersData.players) {
-    await upsertPlayer(player);
-  }
-  console.log('✅ Players written\n');
   
   await closeDb();
   console.log('🎉 Database sync complete!');
