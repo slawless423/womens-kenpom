@@ -27,7 +27,7 @@ jobs:
       - name: Write to Database
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: node scripts/db_writer.mjs
+        run: node scripts/write_all_to_db.mjs
       
       - name: Clean up installation artifacts
         run: |
