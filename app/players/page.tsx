@@ -38,6 +38,7 @@ type Player = {
 type TeamStats = {
   games: number;
   fga: number;
+  fgm: number;
   orb: number;
   tov: number;
   fta: number;
@@ -79,6 +80,7 @@ export default function PlayersPage() {
         statsMap.set(t.teamId, {
           games: t.games,
           fga: t.fga,
+          fgm: t.fgm,
           orb: t.orb,
           tov: t.tov,
           fta: t.fta,
